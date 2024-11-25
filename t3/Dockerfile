@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     x11-apps \
     xterm \
     xauth \
+    systemd \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure XRDP
@@ -42,6 +43,8 @@ RUN sed -i 's/3389/3390/g' /etc/xrdp/xrdp.ini && \
     sed -i 's/xserverbpp=24/xserverbpp=128/g' /etc/xrdp/xrdp.ini && \
     echo "gnome-session" > /etc/skel/.xsession
 
+# Enable and start dbus and systemd services
+RUN systemctl enable dbus && systemctl enable systemd-logind
 
 # Set up ROS2 Humble repositories
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
@@ -76,6 +79,7 @@ RUN echo "gnome-session" > /home/ros_user/.xsession
 RUN echo '#!/bin/bash\n\
 service dbus start\n\
 service xrdp start\n\
+service systemd-logind start\n\
 tail -f /dev/null' > /start.sh && \
 chmod +x /start.sh
 

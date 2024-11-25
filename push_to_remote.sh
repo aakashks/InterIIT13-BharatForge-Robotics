@@ -3,8 +3,8 @@
 HOST="iit"
 REMOTE_DIR_PATH="/home/darshan/aks_test"
 
-DOCKER_CONTAINER="ros2_humble_rdp_nv"
-DOCKER_PATH="/home/ros2_ws/src/semantic_map"
+DOCKER_CONTAINER="humble2"
+DOCKER_PATH="~/ros2_ws/src/object_detection"
 
 # list of subdirectories to be copied to remote
 SUBDIRS=("marker" "task_alloc" "t3")

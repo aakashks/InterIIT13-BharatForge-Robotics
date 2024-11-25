@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import torch
 from detection_msgs.msg import DetectedObjects  # Custom message type
+from custom_interfaces.msg import ObjectDetection  # Custom message type
 
 class ObjectDetector(Node):
     def __init__(self):
@@ -37,10 +38,14 @@ class ObjectDetector(Node):
             self.odom_callback,
             10)
             
+        # Get robot ID parameter
+        self.declare_parameter('robot_id', 0)
+        self.robot_id = self.get_parameter('robot_id').value
+        
         # Initialize publisher
         self.detect_pub = self.create_publisher(
-            DetectedObjects,
-            '/detected_objects',
+            ObjectDetection,
+            f'robot_{self.robot_id}/object_detection',
             10)
             
         # Store latest depth image and odometry
@@ -85,15 +90,17 @@ class ObjectDetector(Node):
                 x = (x_mid - self.cx) * z / self.fx
                 y = (y_mid - self.cy) * z / self.fy
                 
-                # Add to detected objects
-                obj = ObjectHypothesisWithPose()
-                obj.id = int(det[-1])
-                obj.score = float(det[-2])
-                obj.pose.pose.position.x = x
-                obj.pose.pose.position.y = y
-                obj.pose.pose.position.z = z
+                # Create ObjectDetection message
+                detection_msg = ObjectDetection()
+                detection_msg.local_object_id = int(det[-1])
+                detection_msg.object_class = int(det[-1])
+                detection_msg.position.x = x
+                detection_msg.position.y = y
+                detection_msg.position.z = z
+                detection_msg.robot_id = self.robot_id
                 
-                detected_objects.detections.append(obj)
+                # Publish detection
+                self.detect_pub.publish(detection_msg)
         
         # Publish results
         self.detect_pub.publish(detected_objects)

@@ -4,17 +4,16 @@ from visualization_msgs.msg import MarkerArray, Marker
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point
 from custom_interfaces.msg import ObjectDetection  # You'll need to create this custom message
-from pymongo import MongoClient
+import json
 from datetime import datetime
 
 class ObjectTracker(Node):
     def __init__(self):
         super().__init__('object_tracker')
         
-        # Initialize MongoDB connection
-        self.client = MongoClient('mongodb://localhost:27017/')
-        self.db = self.client['object_tracking']
-        self.collection = self.db['detected_objects']
+        # Initialize JSON file for storing object detections
+        self.json_file = 'detected_objects.json'
+        self.load_data()
         
         # Create a publisher for visualization markers
         self.marker_publisher = self.create_publisher(
@@ -26,7 +25,7 @@ class ObjectTracker(Node):
         # Subscribe to object detection topics from all robots
         # Assuming each robot publishes to 'robot_X/object_detection'
         self.subscriptions = []
-        for robot_id in range(100):  # Adjust range based on number of robots
+        for robot_id in range(1, 5):  # Adjust range based on number of robots
             topic = f'robot_{robot_id}/object_detection'
             sub = self.create_subscription(
                 ObjectDetection,
@@ -41,8 +40,19 @@ class ObjectTracker(Node):
         
         self.get_logger().info('Object Tracker initialized')
 
+    def load_data(self):
+        try:
+            with open(self.json_file, 'r') as file:
+                self.data = json.load(file)
+        except FileNotFoundError:
+            self.data = {}
+
+    def save_data(self):
+        with open(self.json_file, 'w') as file:
+            json.dump(self.data, file, default=str)
+
     def object_detection_callback(self, msg):
-        # Store object detection in MongoDB
+        # Store object detection in JSON file
         object_data = {
             'local_object_id': msg.local_object_id,
             'object_class': msg.object_class,
@@ -51,24 +61,21 @@ class ObjectTracker(Node):
                 'y': msg.position.y,
                 'z': msg.position.z
             },
-            'timestamp': datetime.now(),
+            'timestamp': datetime.now().isoformat(),
             'robot_id': msg.robot_id
         }
         
         # Update or insert the object data
-        self.collection.update_one(
-            {'local_object_id': msg.local_object_id},
-            {'$set': object_data},
-            upsert=True
-        )
+        self.data[msg.local_object_id] = object_data
+        self.save_data()
         
         self.get_logger().info(f'Received object detection from robot {msg.robot_id}')
 
     def publish_visualization(self):
         marker_array = MarkerArray()
         
-        # Retrieve all objects from MongoDB
-        objects = self.collection.find()
+        # Retrieve all objects from JSON file
+        objects = self.data.values()
         
         for obj in objects:
             marker = Marker()
