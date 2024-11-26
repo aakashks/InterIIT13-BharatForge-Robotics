@@ -26,7 +26,6 @@ RUN apt-get update && apt-get install -y \
     xauth \
     git \
     python3-pip \
-    python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure XRDP
@@ -62,7 +61,7 @@ RUN useradd -m -s /bin/bash ros_user && \
 # Set up ROS2 environment for ros_user
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/ros_user/.bashrc
 
-RUN pip3 install uv
+RUN pip install uv
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
