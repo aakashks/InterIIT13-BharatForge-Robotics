@@ -23,7 +23,7 @@ class ObjectTracker(Node):
         
         # Subscribe to object detection topics from all robots
         # Assuming each robot publishes to 'robot_X/object_detection'
-        self.subscriptions = []
+        self.object_subscriptions = []
         for robot_id in range(1, 5):  # Adjust range based on number of robots
             topic = f'robot_{robot_id}/object_detection'
             sub = self.create_subscription(
@@ -32,7 +32,7 @@ class ObjectTracker(Node):
                 self.object_detection_callback,
                 10
             )
-            self.subscriptions.append(sub)
+            self.object_subscriptions.append(sub)
         
         # Timer for periodic visualization update
         self.create_timer(1.0, self.publish_visualization)
