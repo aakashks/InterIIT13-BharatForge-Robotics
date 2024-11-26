@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image, CompressedImage
+from sensor_msgs.msg import Image
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 from cv_bridge import CvBridge
-from vision_msgs.msg import Detection2D, Detection2DArray, ObjectHypothesisWithPose
 import cv2
 import numpy as np
 import torch
-from detection_msgs.msg import DetectedObjects  # Custom message type
-from custom_interfaces.msg import ObjectDetection  # Custom message type
+import json
 
 class ObjectDetector(Node):
     def __init__(self):
@@ -44,7 +43,7 @@ class ObjectDetector(Node):
         
         # Initialize publisher
         self.detect_pub = self.create_publisher(
-            ObjectDetection,
+            String,
             f'robot_{self.robot_id}/object_detection',
             10)
             
@@ -75,8 +74,7 @@ class ObjectDetector(Node):
         results = self.model(cv_image)
         
         # Process results
-        detected_objects = DetectedObjects()
-        detected_objects.header = msg.header
+        detected_objects = []
         
         for det in results.xyxy[0]:
             if det[-1] > 0.5:  # Confidence threshold
@@ -90,20 +88,20 @@ class ObjectDetector(Node):
                 x = (x_mid - self.cx) * z / self.fx
                 y = (y_mid - self.cy) * z / self.fy
                 
-                # Create ObjectDetection message
-                detection_msg = ObjectDetection()
-                detection_msg.local_object_id = int(det[-1])
-                detection_msg.object_class = int(det[-1])
-                detection_msg.position.x = x
-                detection_msg.position.y = y
-                detection_msg.position.z = z
-                detection_msg.robot_id = self.robot_id
+                # Create detection dictionary
+                detection = {
+                    'id': int(det[-1]),
+                    'label': int(det[-1]),
+                    'position': {'x': float(x), 'y': float(y), 'z': float(z)},
+                    'robot_id': self.robot_id
+                }
                 
-                # Publish detection
-                self.detect_pub.publish(detection_msg)
+                detected_objects.append(detection)
         
-        # Publish results
-        self.detect_pub.publish(detected_objects)
+        # Publish results as JSON string
+        msg = String()
+        msg.data = json.dumps(detected_objects)
+        self.detect_pub.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

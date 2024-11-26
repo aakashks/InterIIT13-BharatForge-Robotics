@@ -13,23 +13,22 @@ RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime
 # Install necessary packages
 RUN apt-get update && apt-get install -y \
     curl \
+    wget \
     gnupg2 \
     lsb-release \
     sudo \
     software-properties-common \
     xrdp \
-    xfce4 \
-    xfce4-terminal \
-    firefox \
+    ubuntu-mate-desktop \
     dbus-x11 \
     xauth \
+    apt-transport-https \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure XRDP
 RUN adduser xrdp ssl-cert
 RUN sed -i 's/3389/3390/g' /etc/xrdp/xrdp.ini
-RUN echo "startxfce4" > /etc/skel/.xsession
-RUN echo "startxfce4" > /root/.xsession
+RUN echo "mate-session" > ~/.xsession
 
 # Set up ROS2 Humble repositories
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
@@ -38,7 +37,6 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/r
 # Install ROS2 Humble Full
 RUN apt-get update && apt-get install -y \
     ros-humble-desktop-full \
-    ros-humble-gazebo-* \
     python3-colcon-common-extensions \
     python3-rosdep \
     python3-vcstool \

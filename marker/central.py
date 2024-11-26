@@ -1,9 +1,8 @@
 import rclpy
 from rclpy.node import Node
 from visualization_msgs.msg import MarkerArray, Marker
-from std_msgs.msg import Header
+from std_msgs.msg import Header, String
 from geometry_msgs.msg import Point
-from custom_interfaces.msg import ObjectDetection  # You'll need to create this custom message
 import json
 from datetime import datetime
 
@@ -28,7 +27,7 @@ class ObjectTracker(Node):
         for robot_id in range(1, 5):  # Adjust range based on number of robots
             topic = f'robot_{robot_id}/object_detection'
             sub = self.create_subscription(
-                ObjectDetection,
+                String,
                 topic,
                 self.object_detection_callback,
                 10
@@ -52,24 +51,24 @@ class ObjectTracker(Node):
             json.dump(self.data, file, default=str)
 
     def object_detection_callback(self, msg):
-        # Store object detection in JSON file
-        object_data = {
-            'local_object_id': msg.local_object_id,
-            'object_class': msg.object_class,
-            'position': {
-                'x': msg.position.x,
-                'y': msg.position.y,
-                'z': msg.position.z
-            },
-            'timestamp': datetime.now().isoformat(),
-            'robot_id': msg.robot_id
-        }
+        # Parse JSON string message
+        detected_objects = json.loads(msg.data)
         
-        # Update or insert the object data
-        self.data[msg.local_object_id] = object_data
-        self.save_data()
-        
-        self.get_logger().info(f'Received object detection from robot {msg.robot_id}')
+        for obj in detected_objects:
+            # Store object detection in JSON file
+            object_data = {
+                'local_object_id': obj['id'],
+                'object_class': obj['label'],
+                'position': obj['position'],
+                'timestamp': datetime.now().isoformat(),
+                'robot_id': obj['robot_id']
+            }
+            
+            # Update or insert the object data
+            self.data[obj['id']] = object_data
+            self.save_data()
+            
+            self.get_logger().info(f'Received object detection from robot {obj["robot_id"]}')
 
     def publish_visualization(self):
         marker_array = MarkerArray()
