@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     dbus-x11 \
     xauth \
     git \
+    nano \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -41,7 +42,7 @@ RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/r
 # Install ROS2 Humble Full
 RUN apt-get update && apt-get install -y \
     ros-humble-desktop-full \
-    ros-humble-gazebo-* \
+    # ros-humble-gazebo-* \
     python3-colcon-common-extensions \
     python3-rosdep \
     python3-vcstool \
@@ -62,6 +63,8 @@ RUN useradd -m -s /bin/bash ros_user && \
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/ros_user/.bashrc
 
 RUN pip install uv
+RUN uv pip install --system torch torchvision --index-url https://download.pytorch.org/whl/cu121
+RUN uv pip install --system requests ipykernel pandas opencv-python ultralytics gitpython pillow setuptools
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
