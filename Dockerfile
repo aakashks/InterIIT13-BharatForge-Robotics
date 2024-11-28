@@ -1,11 +1,18 @@
 # Start from Ubuntu 22.04
-FROM nvidia/opengl:1.2-glvnd-runtime-ubuntu22.04
+FROM ubuntu:22.04
+# FROM nvidia/opengl:1.2-glvnd-runtime-ubuntu22.04
 
 # Avoid interactive dialog during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES graphics,utility,compute
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
+
+# Set locale
+RUN apt-get update && apt-get install -y locales && \
+    locale-gen en_US en_US.UTF-8 && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+ENV LANG=en_US.UTF-8
 
 # Set up timezone
 RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime
@@ -27,6 +34,7 @@ RUN apt-get update && apt-get install -y \
     git \
     nano \
     python3-pip \
+    python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure XRDP
@@ -57,14 +65,15 @@ RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 # Create a new user
 RUN useradd -m -s /bin/bash ros_user && \
     echo "ros_user:password" | chpasswd && \
-    adduser ros_user sudo
+    adduser ros_user sudo && chown -R ros_user:ros_user /home/ros_user
 
 # Set up ROS2 environment for ros_user
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/ros_user/.bashrc
 
+# Install python packages
 RUN pip install uv
 RUN uv pip install --system torch torchvision --index-url https://download.pytorch.org/whl/cu121
-RUN uv pip install --system requests ipykernel pandas opencv-python ultralytics gitpython pillow setuptools
+RUN uv pip install --system requests ipykernel pandas seaborn opencv-python ultralytics gitpython pillow setuptools
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
