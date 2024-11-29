@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     xrdp \
     xfce4 \
     xfce4-terminal \
-    firefox \
+    # firefox \
     dbus-x11 \
     xauth \
     git \
@@ -36,12 +36,6 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     python-is-python3 \
     && rm -rf /var/lib/apt/lists/*
-
-# Configure XRDP
-RUN adduser xrdp ssl-cert
-RUN sed -i 's/3389/3390/g' /etc/xrdp/xrdp.ini
-RUN echo "startxfce4" > /etc/skel/.xsession
-RUN echo "startxfce4" > /root/.xsession
 
 # Set up ROS2 Humble repositories
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
@@ -60,15 +54,20 @@ RUN apt-get update && apt-get install -y \
 RUN rosdep init && rosdep update
 
 # Set up ROS2 environment
-RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> /etc/skel/.bashrc
+RUN mkdir -p /etc/skel/ros2_ws/src
+RUN echo "source ~/ros2_ws/install/setup.bash" >> /etc/skel/.bashrc
+
+# Configure XRDP
+RUN adduser xrdp ssl-cert
+RUN sed -i 's/3389/3391/g' /etc/xrdp/xrdp.ini
+RUN echo "startxfce4" > /etc/skel/.xsession
+RUN echo "startxfce4" > /root/.xsession
 
 # Create a new user
-RUN useradd -m -s /bin/bash ros_user && \
-    echo "ros_user:password" | chpasswd && \
-    adduser ros_user sudo && chown -R ros_user:ros_user /home/ros_user
-
-# Set up ROS2 environment for ros_user
-RUN echo "source /opt/ros/humble/setup.bash" >> /home/ros_user/.bashrc
+RUN useradd -m -s /bin/bash user1 && \
+    echo "user1:password" | chpasswd && \
+    adduser user1 sudo && chown -R user1:user1 /home/user1
 
 # Install python packages
 RUN pip install uv
@@ -83,7 +82,7 @@ tail -f /dev/null' > /start.sh && \
 chmod +x /start.sh
 
 # Expose XRDP port
-EXPOSE 3390
+EXPOSE 3391
 
 # Set the default command
 CMD ["/start.sh"]
