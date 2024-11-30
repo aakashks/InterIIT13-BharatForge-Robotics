@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     xrdp \
     xfce4 \
     xfce4-terminal \
-    # firefox \
+    firefox \
     dbus-x11 \
     xauth \
     git \
