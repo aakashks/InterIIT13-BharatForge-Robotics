@@ -1,9 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import networkx as nx
 from PIL import Image
 import yaml
-from scipy.spatial import Voronoi, voronoi_plot_2d
+from scipy.spatial import Voronoi
 from scipy.sparse.csgraph import minimum_spanning_tree
 from scipy.spatial.distance import cdist
 from utils import *
@@ -22,32 +22,41 @@ def pgm2occupancy(pgm_file, occupied_thresh=0.65, free_thresh=0.196):
     return occupancy_grid
 
 def plot_occupancy_grid(occupancy_grid):
-    plt.imshow(occupancy_grid, cmap='gray', origin='lower')
-    plt.colorbar(label='Occupancy')
-    plt.title('Occupancy Grid')
-    plt.xlabel('X (cells)')
-    plt.ylabel('Y (cells)')
-    plt.show()
-
-
+    fig = go.Figure(data=go.Heatmap(
+        z=occupancy_grid,
+        colorscale='gray',
+        reversescale=True,
+        showscale=True
+    ))
+    fig.update_layout(
+        title='Occupancy Grid',
+        xaxis_title='X (cells)',
+        yaxis_title='Y (cells)',
+        yaxis=dict(autorange='reversed')
+    )
+    fig.show()
 
 class patrol_graph():
     def __init__(self, yaml_path, pgm_file) -> None:
-        
         with open(yaml_path, 'r') as stream:
             self.map_yaml = yaml.safe_load(stream)
-        self.resolution = self.map_yaml['resolution'] # meters/pixel
+        self.resolution = self.map_yaml['resolution']  # meters/pixel
         self.origin = self.map_yaml['origin']
         self.pgm_file = pgm_file
-        
+
         self.occupancy_grid = pgm2occupancy(self.pgm_file)
         self.astar = AStar(self.occupancy_grid)  # Initialize A* pathfinding
-    
-    def gen_voronoi(self, distance_threshold=40, dilation_radius=20):
-        # Step 1: Expand the obstacles (dilation)
-        expanded_obstacles = binary_dilation(self.occupancy_grid, structure=np.ones((dilation_radius, dilation_radius)))
-        expanded_obstacles = expanded_obstacles.astype(int)  # Convert back to int (1 = obstacle, 0 = free space)
+
+    def gen_voronoi(self, distance_threshold=10, dilation_radius=1):
+        # Use resolution to adjust distance threshold
+        # distance_threshold = int(distance_threshold / self.resolution)
         
+        # Step 1: Expand the obstacles (dilation)
+        expanded_obstacles = binary_dilation(
+            self.occupancy_grid, structure=np.ones((dilation_radius, dilation_radius))
+        )
+        expanded_obstacles = expanded_obstacles.astype(int)  # Convert back to int (1 = obstacle, 0 = free space)
+
         # Step 2: Find free spaces in the modified occupancy grid
         free_spaces = np.array(np.where(expanded_obstacles == 0)).T
         print(f"Total free spaces in modified grid: {free_spaces.shape[0]}")
@@ -88,21 +97,60 @@ class patrol_graph():
             return
 
         # Step 5: Plot the occupancy grid
-        plt.imshow(self.occupancy_grid, cmap='gray', origin='lower')
-        plt.scatter(centers[:, 1], centers[:, 0], c='r', label='Voronoi centers')
-        for i, center in enumerate(centers):
-            plt.text(center[1] + 5, center[0] + 5, str(i), color='blue', fontsize=12)  # Annotate node IDs
+        fig = go.Figure()
 
-        # Step 6: Plot the Voronoi diagram (optional)
-        # voronoi_plot_2d(vor, ax=plt.gca(), show_vertices=False, line_colors='b', line_width=1)
+        # Add occupancy grid
+        fig.add_trace(go.Heatmap(
+            z=self.occupancy_grid,
+            colorscale='gray',
+            showscale=False
+        ))
+
+        # Add Voronoi centers as scatter points
+        fig.add_trace(go.Scatter(
+            x=centers[:, 1],
+            y=centers[:, 0],
+            mode='markers',
+            marker=dict(color='red'),
+            name='Voronoi centers'
+        ))
+
+        # Add text annotations for node IDs
+        annotations = []
+        for i, center in enumerate(centers):
+            annotations.append(dict(
+                x=center[1] + 5,
+                y=center[0] + 5,
+                text=str(i),
+                showarrow=False,
+                font=dict(color='blue', size=12)
+            ))
+
+        fig.update_layout(
+            title='Voronoi Diagram with MST',
+            annotations=annotations,
+            yaxis=dict(autorange='reversed')
+        )
 
         # Step 7: Construct and plot the MST (minimum spanning tree) for the Voronoi centers
-        mst_edges = self.plot_mst(centers)
-        plt.show()
-        
+        mst_edges, all_paths = self.plot_mst(centers)
+
+        # Add the paths to the figure
+        for path in all_paths:
+            fig.add_trace(go.Scatter(
+                x=path[:, 1],
+                y=path[:, 0],
+                mode='lines',
+                line=dict(color='green', width=1),
+                showlegend=False
+            ))
+
+        # Show the figure
+        fig.show()
+
         # Step 8: Save the Graph in the required format
         generate_graph(centers=centers, mst_edges=mst_edges, filename=f"{self.pgm_file.split('.')[0]}.graph")
-        
+
     def plot_mst(self, centers):
         # Compute pairwise distances between Voronoi centers
         dist_matrix = cdist(centers, centers, 'euclidean')
@@ -112,7 +160,10 @@ class patrol_graph():
 
         # Convert the sparse matrix to a dense matrix for easier processing
         mst = mst.toarray()
-        
+
+        # Initialize a list to store paths
+        all_paths = []
+
         # Plot the MST by connecting the Voronoi centers with pathfinding checks
         for i in range(len(centers)):
             for j in range(i + 1, len(centers)):
@@ -124,20 +175,19 @@ class patrol_graph():
                     path = self.astar.a_star(start, end)
 
                     if path:
-                        # If a valid path exists, plot the path
+                        # If a valid path exists, collect the path
                         path = np.array(path)
-                        plt.plot(path[:, 1], path[:, 0], 'g-', lw=1)
-                        
-        # Step 4: Extract edges from the MST and calculate the distance
+                        all_paths.append(path)
+
+        # Extract edges from the MST and calculate the distance
         mst_edges = []
         for i in range(mst.shape[0]):
             for j in range(i + 1, mst.shape[1]):
                 if mst[i, j] > 0:  # If there's an edge between node i and node j
                     mst_edges.append((i, j, mst[i, j]))  # Add (node1, node2, distance)
 
-        return mst_edges
+        return mst_edges, all_paths
 
 if __name__ == "__main__":
     G = patrol_graph('marker/files/smalltown_world.yaml', 'marker/files/smalltown_world.pgm')
-    G.gen_voronoi(distance_threshold=20, dilation_radius=20)
-    
+    G.gen_voronoi(distance_threshold=10, dilation_radius=1)
