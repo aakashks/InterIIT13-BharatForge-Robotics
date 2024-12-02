@@ -50,13 +50,21 @@ RUN apt-get update && apt-get install -y \
     python3-vcstool \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install -y \
+    ros-humble-navigation2* \
+    ros-humble-turtlebot3* \
+    ros-humble-turtlebot4* \
+    ros-humble-nav2-* \
+    ros-humble-rmw-cyclonedds-cpp \
+    ros-dev-tools
+
 # Initialize rosdep
 RUN rosdep init && rosdep update
 
 # Set up ROS2 environment
 RUN echo "source /opt/ros/humble/setup.bash" >> /etc/skel/.bashrc
-RUN mkdir -p /etc/skel/ros2_ws/src
-RUN echo "source ~/ros2_ws/install/setup.bash" >> /etc/skel/.bashrc
+# RUN mkdir -p /etc/skel/ros2_ws/src
+# RUN echo "source ~/ros2_ws/install/setup.bash" >> /etc/skel/.bashrc
 
 # Configure XRDP
 RUN adduser xrdp ssl-cert
@@ -69,10 +77,18 @@ RUN useradd -m -s /bin/bash user1 && \
     echo "user1:password" | chpasswd && \
     adduser user1 sudo && chown -R user1:user1 /home/user1
 
-# Install python packages
+# Install python packages   
 RUN pip install uv
 RUN uv pip install --system torch torchvision --index-url https://download.pytorch.org/whl/cu121
-RUN uv pip install --system requests ipykernel pandas seaborn opencv-python ultralytics gitpython pillow setuptools
+RUN uv pip install --system requests ipykernel pandas seaborn pillow setuptools
+
+####
+RUN uv pip install --system numpy matplotlib \
+    opencv-python ultralytics gitpython \
+    networkx zarr 
+
+RUN echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /etc/skel/.bashrc
+####
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
