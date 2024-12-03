@@ -14,26 +14,28 @@ from segment_anything.utils.amg import (
     remove_small_regions,
     rle_to_mask,
 )
+import subprocess
 from torchvision.ops.boxes import batched_nms, box_area
 from torchvision.transforms import ToTensor
 
 
-def build_efficient_sam_vitt(device='cpu'):
+def build_efficient_sam_vitt():
     return build_efficient_sam(
         encoder_patch_embed_dim=192,
         encoder_num_heads=3,
         checkpoint="EfficientSAM/weights/efficient_sam_vitt.pt",
     ).eval()
 
-def build_efficient_sam_vits(device='cpu'):
+def build_efficient_sam_vits():
     return build_efficient_sam(
         encoder_patch_embed_dim=384,
         encoder_num_heads=6,
         checkpoint="EfficientSAM/weights/efficient_sam_vits.pt",
     ).eval()
 
-def load_models(sam='vitt', name='ViT-B/32', device='cpu'):
+def load_models(sam='vitt', name='ViT-B/16', device='cpu'):
     model = build_efficient_sam_vitt() if sam == 'vitt' else build_efficient_sam_vits()
+    model = model.to(device)
     clip_model, clip_preprocess = clip.load(name, device=device)
     return model, clip_model, clip_preprocess
 
@@ -71,7 +73,11 @@ def process_small_region(rles):
     masks = [rle_to_mask(rles[i][0]) for i in keep_by_nms]
     return masks
 
-def get_predictions_given_embeddings_and_queries(img, points, point_labels, model):
+def get_predictions_given_embeddings_and_queries(img, points, point_labels, model, device='cpu'):
+    img = img.to(device)
+    points = points.to(device)
+    point_labels = point_labels.to(device)
+    model = model.eval().to(device)
     predicted_masks, predicted_iou = model(
         img[None, ...], points, point_labels
     )
@@ -105,11 +111,11 @@ def show_anns_ours(mask, ax):
     ax.imshow(img)
 
 
-def get_embeddings(image_path, model, clip_model, clip_preprocess, grid_size=16, device='cpu'):
-    model = model.cpu()
+def get_embeddings(image_path, model, clip_model, clip_preprocess, grid_size=8, device='cpu'):
+    model = model.eval()
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    img_tensor = ToTensor()(image)
+    img_tensor = ToTensor()(image).to(device)
     _, original_image_h, original_image_w = img_tensor.shape
     xy = []
     for i in range(grid_size):
@@ -123,30 +129,36 @@ def get_embeddings(image_path, model, clip_model, clip_preprocess, grid_size=16,
     point_labels = torch.ones(num_pts, 1)
     with torch.no_grad():
         predicted_masks, predicted_iou = get_predictions_given_embeddings_and_queries(
-              img_tensor.cpu(),
-              points.reshape(1, num_pts, 1, 2).cpu(),
-              point_labels.reshape(1, num_pts, 1).cpu(),
-              model.cpu(),
+              img_tensor,
+              points.reshape(1, num_pts, 1, 2).to(device),
+              point_labels.reshape(1, num_pts, 1).to(device),
+              model,
+              device=device,
           )
     rle = [mask_to_rle_pytorch(m[0:1]) for m in predicted_masks]
     predicted_masks = process_small_region(rle)
+    
+    print(f"Number of segments: {len(predicted_masks)}")
 
     # Use CLIP to generate embeddings for each segment
     clip_model = clip_model.to(device)
     embeddings = {}
     iou_scores = {}
     for idx, mask in enumerate(predicted_masks):
-        masked_image = image * mask.numpy()
+        masked_image = image * mask[:, :, None]
         masked_image_pil = Image.fromarray(masked_image)
         
         input_tensor = clip_preprocess(masked_image_pil).unsqueeze(0).to(device)
         
         with torch.no_grad():
-            image_features = clip_model.encode_image(input_tensor).cpu().numpy()
+            image_features = clip_model.encode_image(input_tensor).cpu()
         
-        image_features /= image_features.norm(dim=-1, keepdim=True)
+        image_features /= image_features.norm(dim=-1, keepdim=True).numpy()
         embeddings[idx] = image_features
         iou_scores[idx] = predicted_iou[idx].item()
+        
+
+    print('Embeddings generated')
         
     return embeddings, iou_scores
 
@@ -155,9 +167,10 @@ def get_embeddings(image_path, model, clip_model, clip_preprocess, grid_size=16,
 def store_embeddings(image_id, image_path, database_path, collection_name="image_embeddings", **kwargs):
     embeddings, _ = get_embeddings(image_path, **kwargs)
     qdrant_client = QdrantClient(path=database_path)
-    qdrant_client.recreate_collection(
+    
+    qdrant_client.create_collection(            # use recreate to overwrite existing collection
         collection_name=collection_name,
-        vector_config=VectorParams(
+        vectors_config=VectorParams(
             size=512,
             distance=Distance.DOT,
         )
@@ -165,7 +178,7 @@ def store_embeddings(image_id, image_path, database_path, collection_name="image
 
     points = [
         PointStruct(
-            id=image_id* 1000 + segment_id,
+            id=image_id * 1000 + segment_id,
             vector=embedding.tolist(),
             payload={"image_id": image_id, "image_path": image_path, "segment_id": segment_id}
         )
@@ -176,17 +189,22 @@ def store_embeddings(image_id, image_path, database_path, collection_name="image
     print(op)
     
     
-def query_embeddings(text_query, clip_model, database_path, collection_name, topk=10, **kwargs):
-    text_query = clip_model.encode_text(text_query)
-    text_query /= text_query.norm(dim=-1, keepdim=True)
+def query_embeddings(text_query, clip_model, database_path, collection_name, topk=10, device='cpu'):
+    clip_model = clip_model.to(device)
+    text_tokens = clip.tokenize([text_query]).to(device)
+    with torch.no_grad():
+        text_features = clip_model.encode_text(text_tokens).cpu().squeeze(0)
+    
+    print(text_features.shape)
+    print(text_features.tolist())
     
     qdrant_client = QdrantClient(database_path)
     
     results = qdrant_client.search(
         collection_name=collection_name,
-        query_vector=text_query.tolist(),
+        query_vector=text_features.tolist(),
         with_payload=True,
-        top=topk
+        limit=topk
     )
         
     for result in results:
@@ -194,9 +212,14 @@ def query_embeddings(text_query, clip_model, database_path, collection_name, top
         
         
 if __name__ == "__main__":
-    image_path = "image2.png"
+    # pip install git+https://github.com/facebookresearch/segment-anything.git
+    # make sure you are in a separate new directory
+    subprocess.run("git clone https://github.com/yformer/EfficientSAM.git", shell=True, check=True)
+    
+    # image_path = "image.jpg"
     database_path = "./db"
+    collection_name = "example2"
     
     model, clip_model, clip_preprocess = load_models()
-    store_embeddings(1, image_path, database_path, model=model, clip_model=clip_model, clip_preprocess=clip_preprocess)
-    query_embeddings("fire extinguisher", clip_model, database_path, "image_embeddings", model=model, clip_model=clip_model, clip_preprocess=clip_preprocess)
+    # store_embeddings(1, image_path, database_path, collection_name=collection_name, model=model, clip_model=clip_model, clip_preprocess=clip_preprocess, device='cuda')
+    query_embeddings("fire extinguisher", clip_model, database_path, collection_name, device='cuda')
