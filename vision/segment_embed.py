@@ -1,6 +1,4 @@
-import io
-
-import clip  # CLIP model
+import clip
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +6,7 @@ import torch
 from EfficientSAM.efficient_sam.efficient_sam import build_efficient_sam
 from PIL import Image
 from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct
+from qdrant_client.models import Distance, PointStruct, VectorParams
 from segment_anything.utils.amg import (
     batched_mask_to_box,
     calculate_stability_score,
@@ -25,14 +23,19 @@ def build_efficient_sam_vitt(device='cpu'):
         encoder_patch_embed_dim=192,
         encoder_num_heads=3,
         checkpoint="EfficientSAM/weights/efficient_sam_vitt.pt",
-    ).eval().to(device)
+    ).eval()
 
 def build_efficient_sam_vits(device='cpu'):
     return build_efficient_sam(
         encoder_patch_embed_dim=384,
         encoder_num_heads=6,
         checkpoint="EfficientSAM/weights/efficient_sam_vits.pt",
-    ).eval().to(device)
+    ).eval()
+
+def load_models(sam='vitt', name='ViT-B/32', device='cpu'):
+    model = build_efficient_sam_vitt() if sam == 'vitt' else build_efficient_sam_vits()
+    clip_model, clip_preprocess = clip.load(name, device=device)
+    return model, clip_model, clip_preprocess
 
 def process_small_region(rles):
     # Function as before to remove small regions
@@ -102,14 +105,7 @@ def show_anns_ours(mask, ax):
     ax.imshow(img)
 
 
-def get_embeddings(image_path, grid_size=16, sam_model='t', clip_model='ViT-B/32', device='cpu'):
-    clip_model, preprocess = clip.load(clip_model, device=device)
-    
-    if sam_model == 't':
-        model = build_efficient_sam_vitt(device=device)
-    else:
-        model = build_efficient_sam_vits(device=device)
-
+def get_embeddings(image_path, model, clip_model, clip_preprocess, grid_size=16, device='cpu'):
     model = model.cpu()
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -135,54 +131,72 @@ def get_embeddings(image_path, grid_size=16, sam_model='t', clip_model='ViT-B/32
     rle = [mask_to_rle_pytorch(m[0:1]) for m in predicted_masks]
     predicted_masks = process_small_region(rle)
 
-    # Use CLIP to generate embeddings for each mask
-    mask_embeddings = []
-    for mask in predicted_masks:
-        mask = Image.fromarray(mask)
-        mask = preprocess(mask).unsqueeze(0).to(device)
-        with torch.no_grad():
-            mask_embedding = clip_model.encode_image(mask)
-        mask_embeddings.append(mask_embedding)
+    # Use CLIP to generate embeddings for each segment
+    clip_model = clip_model.to(device)
+    embeddings = {}
+    iou_scores = {}
+    for idx, mask in enumerate(predicted_masks):
+        masked_image = image * mask.numpy()
+        masked_image_pil = Image.fromarray(masked_image)
         
-    # return predicted_masks, mask_embeddings
-    return mask_embeddings
+        input_tensor = clip_preprocess(masked_image_pil).unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            image_features = clip_model.encode_image(input_tensor).cpu().numpy()
+        
+        image_features /= image_features.norm(dim=-1, keepdim=True)
+        embeddings[idx] = image_features
+        iou_scores[idx] = predicted_iou[idx].item()
+        
+    return embeddings, iou_scores
 
 
 
-def store_embeddings(image_id, segment_id, image_path, database_path, **kwargs):
-    embeddings = get_embeddings(image_path, **kwargs)
-    qdrant_client = QdrantClient(':memory:')
-    collection_name = "image_embeddings"
+def store_embeddings(image_id, image_path, database_path, collection_name="image_embeddings", **kwargs):
+    embeddings, _ = get_embeddings(image_path, **kwargs)
+    qdrant_client = QdrantClient(path=database_path)
     qdrant_client.recreate_collection(
         collection_name=collection_name,
-        vector_size=512,  # Dimension of the embedding vector
-        distance="Cosine"  # Metric for similarity
+        vector_config=VectorParams(
+            size=512,
+            distance=Distance.DOT,
+        )
     )
-    
+
     points = [
         PointStruct(
-            id=f"{image_id}_{segment_id}",  # Unique ID for each point
-            vector=embedding.tolist(),     # Convert numpy array to list for JSON serialization
-            payload={"image_id": image_id, "segment_id": segment_id}  # Metadata
+            id=image_id* 1000 + segment_id,
+            vector=embedding.tolist(),
+            payload={"image_id": image_id, "image_path": image_path, "segment_id": segment_id}
         )
-        for image_id, segment_id, embedding in embeddings
+        for segment_id, embedding in embeddings.items()
     ]
 
-    qdrant_client.upsert(collection_name=collection_name, points=points)
+    op = qdrant_client.upsert(collection_name=collection_name, points=points, wait=True)
+    print(op)
     
     
-def query_embeddings(image_path, database_path, **kwargs):
-    query_embeddings = get_embeddings(image_path, **kwargs)
+def query_embeddings(text_query, clip_model, database_path, collection_name, topk=10, **kwargs):
+    text_query = clip_model.encode_text(text_query)
+    text_query /= text_query.norm(dim=-1, keepdim=True)
     
     qdrant_client = QdrantClient(database_path)
     
-    collection_name = "image_embeddings"
-    
     results = qdrant_client.search(
         collection_name=collection_name,
-        vectors=[embedding.tolist() for embedding in query_embeddings],
-        limit=5  # Retrieve top 5 closest embeddings
+        query_vector=text_query.tolist(),
+        with_payload=True,
+        top=topk
     )
         
     for result in results:
         print(f"Match ID: {result.id}, Distance: {result.score}, Metadata: {result.payload}")
+        
+        
+if __name__ == "__main__":
+    image_path = "image2.png"
+    database_path = "./db"
+    
+    model, clip_model, clip_preprocess = load_models()
+    store_embeddings(1, image_path, database_path, model=model, clip_model=clip_model, clip_preprocess=clip_preprocess)
+    query_embeddings("fire extinguisher", clip_model, database_path, "image_embeddings", model=model, clip_model=clip_model, clip_preprocess=clip_preprocess)
