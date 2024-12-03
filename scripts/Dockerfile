@@ -79,7 +79,7 @@ RUN useradd -m -s /bin/bash user1 && \
 
 # Install python packages   
 RUN pip install uv
-RUN uv pip install --system torch torchvision --index-url https://download.pytorch.org/whl/cu121
+RUN uv pip install --system torch torchvision
 RUN uv pip install --system requests ipykernel pandas seaborn pillow setuptools
 
 ####
