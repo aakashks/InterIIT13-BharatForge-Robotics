@@ -1,3 +1,0 @@
-from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
-
-embedding_function = OpenCLIPEmbeddingFunction()
