@@ -54,7 +54,7 @@ async def fetch(session, semaphore, prompt, image_url):
         return vlm_output
 
 
-async def main_async(image_dir, prompt):
+async def run_multiple_image_query(image_dir, prompt):
     """
     Main asynchronous function to process all images.
     """
@@ -77,9 +77,11 @@ async def main_async(image_dir, prompt):
         
     with open("results.json", "w") as f:
         json.dump(results, f)
+        
+    return results
 
 if __name__ == "__main__":
     image_dir = sys.argv[1]
     prompt = sys.argv[2]
-    asyncio.run(main_async(image_dir, prompt))
+    asyncio.run(run_multiple_image_query(image_dir, prompt))
     
