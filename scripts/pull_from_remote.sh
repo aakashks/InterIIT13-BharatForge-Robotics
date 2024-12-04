@@ -1,7 +1,7 @@
 #!/bin/bash
 
-HOST="iit"
-REMOTE_DIR_PATH="/home/darshan/aks_test"
+HOST="iit2"
+REMOTE_DIR_PATH="/home/ps2-mid/ws"
 
 # rsync arguments
 RSYNC_OPTS="-avu --progress \
@@ -11,6 +11,8 @@ RSYNC_OPTS="-avu --progress \
     --exclude='.vscode' \
     --exclude='*.log' \
     --exclude='*.tmp' \
+    --exclude='*/.ipynb_checkpoints' \
+    --exclude='*/.chromadb' \
     --exclude='*.swp'"
 
 rsync $RSYNC_OPTS $HOST:$REMOTE_DIR_PATH/ ./

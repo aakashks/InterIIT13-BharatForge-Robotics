@@ -56,7 +56,8 @@ RUN apt-get update && apt-get install -y \
     ros-humble-turtlebot4* \
     ros-humble-nav2-* \
     ros-humble-rmw-cyclonedds-cpp \
-    ros-dev-tools
+    ros-dev-tools \ 
+    && rm -rf /var/lib/apt/lists/*
 
 # Initialize rosdep
 RUN rosdep init && rosdep update

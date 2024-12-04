@@ -1,13 +1,13 @@
 #!/bin/bash
 
-HOST="iit"
-REMOTE_DIR_PATH="/home/darshan/aks_test"
+HOST="iit2"
+REMOTE_DIR_PATH="/home/ps2-mid/ws/"
 
-DOCKER_CONTAINER="humble2"
-DOCKER_PATH="~/ros2_ws/src/object_detection"
+# DOCKER_CONTAINER="humble2"
+# DOCKER_PATH="~/ros2_ws/src/object_detection"
 
 # list of subdirectories to be copied to remote
-SUBDIRS=("marker" "task_alloc" "t3")
+SUBDIRS=("vision-exp" "images")
 
 # rsync arguments
 RSYNC_OPTS="-avu --progress \
