@@ -3,7 +3,7 @@
 HOST="iit2"
 REMOTE_DIR_PATH="/home/ps2-mid/ws"
 
-SUBDIRS=("vision-exp")
+SUBDIRS=("vision-exp" "images")
 
 # rsync arguments
 RSYNC_OPTS="-avu --progress \

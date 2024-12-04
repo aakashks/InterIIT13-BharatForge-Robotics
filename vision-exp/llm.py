@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import List
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv('.env')
 
 # Define a Pydantic model for the expected JSON response
 class PossibleObjects(BaseModel):
@@ -31,7 +31,7 @@ def ask_text_query(
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
+            "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
         }
 
         response = requests.post(
