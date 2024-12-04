@@ -12,7 +12,7 @@ RSYNC_OPTS="-avu --progress \
     --exclude='*.log' \
     --exclude='*.tmp' \
     --exclude='*/.ipynb_checkpoints' \
-    --exclude='*/.chromadb' \
+    --exclude='*/.chromadb/' \
     --exclude='*.swp'"
 
 rsync $RSYNC_OPTS $HOST:$REMOTE_DIR_PATH/ ./
