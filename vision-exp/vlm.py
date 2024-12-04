@@ -12,7 +12,7 @@ OPENAI_API_KEY = "EMPTY"
 OPENAI_API_BASE = "http://0.0.0.0:8000/v1"
 MODEL_NAME = "allenai/Molmo-7B-D-0924"
 CONCURRENT_REQUESTS = 20  # Number of concurrent API requests
-TIMEOUT = 10  # Timeout in seconds
+TIMEOUT = 50  # Timeout in seconds
 
 async def fetch(session, semaphore, prompt, image_url):
     """
@@ -37,7 +37,7 @@ async def fetch(session, semaphore, prompt, image_url):
             }
 
             # Set a specific timeout for the request
-            request_timeout = aiohttp.ClientTimeout(total=TIMEOUT)  # 5-second timeout
+            request_timeout = aiohttp.ClientTimeout(total=TIMEOUT)   # timeout for each request (note that all requests were sent simultaneously)
 
             async with session.post(f"{OPENAI_API_BASE}/chat/completions", json=payload, headers=headers, timeout=request_timeout) as response:
                 if response.status == 200:
@@ -63,7 +63,7 @@ async def run_multiple_image_query(image_dir, prompt):
     image_paths = [os.path.abspath(f) for f in image_paths]
     semaphore = asyncio.Semaphore(CONCURRENT_REQUESTS)
     connector = aiohttp.TCPConnector(limit=CONCURRENT_REQUESTS)
-    timeout = aiohttp.ClientTimeout(total=None)  # Adjust timeout as needed
+    timeout = aiohttp.ClientTimeout(total=TIMEOUT)  # Adjust timeout as needed
 
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
 
