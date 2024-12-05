@@ -14,7 +14,13 @@ def run_clip_on_objects(object_list, client, topk=5):
     object_and_path = {}
     for i in range(len(object_list)):
         image_paths = [d['image_path'] for d in results['metadatas'][i]]
-        object_and_path[i] = {'object': object_list[i], 'image_paths': image_paths}
+        mds = results['metadatas'][i]
+        x_coords = [md.get('pose_x', 0.0) for md in mds]
+        y_coords = [md.get('pose_y', 0.0) for md in mds]
+        z_coords = [md.get('pose_z', 0.0) for md in mds]
+        w_coords = [md.get('pose_w', 0.0) for md in mds]
+        
+        object_and_path[i] = {'object': object_list[i], 'image_paths': image_paths, 'pose': {'x': x_coords, 'y': y_coords, 'z': z_coords, 'w': w_coords}}
         
     ic(object_and_path)
     
@@ -110,6 +116,8 @@ def run_vlm(object_and_path, concurrent_requests=50, timeout=240):
             points = extract_points(r)
             if points:
                 points['image_path'] = dic['image_paths'][j]
-                results[i]['points'].append(points)
+                # results[i]['points'].append(points)
+                # instead storing the pose_x, pose_y, pose_z, pose_w for now
+                results[i]['points'].append({'x_coordinates': dic['pose']['x'][j], 'y_coordinates': dic['pose']['y'][j]})
     
     return results

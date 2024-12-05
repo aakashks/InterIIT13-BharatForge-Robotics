@@ -8,6 +8,11 @@ from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
 from utils import *
 from PIL import Image
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Styling and Layout
 st.set_page_config(
@@ -97,7 +102,7 @@ ros_node = st.session_state.ros_node
 # Load database
 if "db_client" not in st.session_state:
     with st.spinner("Loading Database..."):
-        st.session_state.db_client = EmbeddingClient("http://0.0.0.0:8000")
+        st.session_state.db_client = EmbeddingClient(os.getenv("DB_URL"))
         st.success("Database loaded successfully!")
 
 db_client = st.session_state.db_client
