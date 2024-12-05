@@ -75,7 +75,7 @@ class ROS2Interface(Node):
     def listener_callback(self, msg):
         self.received_message = msg.data
 
-    def publish(self, coord_data):        #
+    def publish(self, coord_data):
         msg = String()
         msg.data = json.dumps(coord_data)
         self.publisher_.publish(msg)
@@ -97,21 +97,18 @@ else:
 ros_node = st.session_state.ros_node
 
 # Load database collection
-
 if "db_collection" not in st.session_state:
     with st.spinner("Loading swarm info..."):
         db_client = chromadb.HttpClient(host='localhost', port=8000)
         embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
         st.session_state.db_collection = db_client.get_collection(
-            'test1', 
-            embedding_function=embedding_function, 
+            'test1',
+            embedding_function=embedding_function,
             data_loader=ImageLoader()
         )
         st.success("Swarm info loaded successfully!")
 
-
 collection = st.session_state.db_collection
-
 
 # Main UI
 st.title("Intelligent Swarm Robotics Command Center")
@@ -137,7 +134,7 @@ else:
 
 
 
-with main_col:    
+with main_col:
     st.markdown("""
     ### Welcome to the Robot Command Interface
     This system allows you to control swarm robots using natural language commands. 
@@ -148,14 +145,14 @@ with main_col:
     2. The system will identify relevant objects
     3. Robots will locate and navigate to the target
 """)
-    
+
     # Text input with placeholder
     prompt = st.text_input(
         "Enter your command",
         placeholder="Example: Find the nearest fire extinguisher and move towards it",
         help="Type a natural language command for the robots"
     )
-    
+
     if st.button("🚀 Execute Command", type="primary") and prompt:
         st.markdown("### Processing Pipeline")
 
@@ -177,14 +174,13 @@ with main_col:
                 st.write("Navigation coordinates:", coord_data)
                 status.update(label=f"✅ {n_objects} objects located!", state="complete")
 
-
             # After getting coord_data, display the detected objects
             with st.status("🖼️ Retrieving object images...", expanded=True) as status:
                 top_matches = get_topk_imgs_from_coord_data(coord_data, k=4)  # Returns list of (object_name, image_path)
 
                 # Create a container for images
                 st.markdown("### Detected Objects")
-                image_cols = st.columns(min(len(top_matches), 4))  # Show 3 images per row max
+                image_cols = st.columns(min(len(top_matches), 4))  # Show 4 images per row max
 
                 for idx, (obj_name, image) in enumerate(top_matches):
                     col_idx = idx % 4  # Determine which column to put the image in
@@ -203,6 +199,20 @@ with main_col:
 
             st.success("🎉 Command successfully processed and sent to robots!")
 
+            # Robot Feedback - Waiting for robots to reach the target
+            with st.status("📡 Waiting for robots to reach the target...", expanded=True) as status:
+                feedback_received = False
+                for i in range(60):  # Wait up to 60 seconds
+                    rclpy.spin_once(ros_node, timeout_sec=1)
+                    if ros_node.received_message:
+                        status.update(label=f"✅ Robots have reached the target: {ros_node.received_message}", state="complete")
+                        feedback_received = True
+                        break
+                    else:
+                        status.update(label="📡 Waiting for robots to reach the target...", state="running")
+                if not feedback_received:
+                    status.update(label="⚠️ No feedback received from robots within the timeout period.", state="warning")
+
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
             st.info("Please try again or contact system administrator if the problem persists.")
@@ -210,7 +220,7 @@ with main_col:
 if st.session_state.show_status:
     with status_col:
         st.markdown("### 🤖 Robot Status")
-        
+
         # Add a container with a different background color for the status panel
         with st.container():
             st.markdown("""
@@ -222,16 +232,6 @@ if st.session_state.show_status:
                 }
                 </style>
             """, unsafe_allow_html=True)
-            
-            # Robot Feedback Section
-            st.markdown("#### Live Feedback")
-            if st.button("📡 Check Swarm Status"):
-                with st.spinner("Receiving swarm feedback..."):
-                    rclpy.spin_once(ros_node, timeout_sec=0.1)
-                    if ros_node.received_message:
-                        st.success(f"📨 Latest Update: {ros_node.received_message}")
-                    else:
-                        st.info("⏳ No new update from swarm")
 
             # System Status
             st.markdown("#### System Status")
