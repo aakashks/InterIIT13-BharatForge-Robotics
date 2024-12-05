@@ -1,15 +1,16 @@
-import streamlit as st
-import requests
 import os
-from dotenv import load_dotenv
+import requests
 import json
 import re
 from pydantic import BaseModel
 from typing import List
 
+from icecream import ic
+
 # Define a Pydantic model for the expected JSON response
 class PossibleObjects(BaseModel):
     possible_objects: List[str]
+
 
 def ask_text_query(
     text_prompt,
@@ -37,10 +38,8 @@ def ask_text_query(
             headers=headers,
             timeout=timeout,
         )
-        response.raise_for_status()  # Raise an exception for HTTP errors
+        response.raise_for_status()
         data = response.json()
-
-        # Extract the assistant's reply
         output = data["choices"][0]["message"]["content"]
 
     except Exception as e:
@@ -59,29 +58,21 @@ def postprocess_llm(response):
         raise ValueError("The response does not contain a valid JSON block.")
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format in the response.")
+    
 
-def main():
-    st.title("🔍 Object Identifier")
-
-    st.write(
-        """
-        Enter a command or query, and the system will identify possible objects or entities 
-        that a robot should interact with based on the input.
-        """
-    )
-
-    # Text input for the user's prompt
-    prompt = st.text_input("Enter your command or query:")
-
-    if st.button("Submit") and prompt:
-        final_prompt = (
+def get_possible_objects(prompt):
+    # unless we get correct json output keep prompting
+    # try 5 times
+    final_prompt = (
             f"""
 Given is user query: "{prompt}".
 We are currently in an indoor environment that can be a warehouse, office, or factory. 
 Commands are given to a robot to navigate the environment.
 Which objects or entities could the user be referring to when they say "{prompt}"? 
 The robot would then need to go to that object or entity.
+Make sure that the objects you list are significantly different and not synonyms.
 Remember that the robot should be able to go to the possible object and then perform an action suitable to the user query.
+Return at most 4 such objects.
 Return the possible objects in a JSON format.
 """
             + """
@@ -95,17 +86,22 @@ Eg. if the query is "go upstairs", the possible objects could be "stairs", "stai
 }
 """
         )
+    count = 0
+    while True:
+        response = ask_text_query(final_prompt)
+        try:
+            objects = postprocess_llm(response)
+            return objects.model_dump()
+        except ValueError as ve:
+            ic(f"Failed to parse response: {ve}")
+            ic(response)
+            if count < 5:
+                count += 1
+                ic(f"Retrying... Attempt {count}")
+            else:
+                ic("Failed to get a valid response from the model.")
+                break
+            
+    return None
 
-        with st.spinner("Processing..."):
-            response = ask_text_query(final_prompt)
-            try:
-                objects = postprocess_llm(response)
-                st.success("Possible Objects Identified:")
-                st.json(objects.model_dump())
-            except ValueError as ve:
-                st.error(f"Failed to parse response: {ve}")
-                st.text(response)
 
-if __name__ == "__main__":
-    load_dotenv('.env')
-    main()
