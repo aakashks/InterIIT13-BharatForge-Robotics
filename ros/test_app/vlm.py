@@ -30,9 +30,9 @@ async def fetch(session, semaphore, prompt, image_url, timeout):
             }
 
             # Set a specific timeout for the request
-            request_timeout = aiohttp.ClientTimeout(total=timeout)   # timeout for each request (note that all requests were sent simultaneously)
+            request_timeout = aiohttp.ClientTimeout(total=None)   # timeout for each request (note that all requests were sent simultaneously)
 
-            async with session.post(f"http://:8081/v1/chat/completions", json=payload, headers=headers, timeout=request_timeout) as response:
+            async with session.post(f"http://0.0.0.0:8081/v1/chat/completions", json=payload, headers=headers, timeout=request_timeout) as response:
                 if response.status == 200:
                     data = await response.json()
                     # Adjust based on actual response structure
@@ -47,7 +47,7 @@ async def fetch(session, semaphore, prompt, image_url, timeout):
         return vlm_output
 
 
-async def run_multiple_image_query(image_paths, prompts, timeout=60, concurrent_requests=25):
+async def run_multiple_image_query(image_paths, prompts, timeout=240, concurrent_requests=50):
     """
     Main asynchronous function to process all images.
     """
@@ -59,6 +59,29 @@ async def run_multiple_image_query(image_paths, prompts, timeout=60, concurrent_
 
         tasks = []
         for image_path, prompt in zip(image_paths, prompts):
+            tasks.append(fetch(session, semaphore, prompt, image_path, timeout))
+        
+        results = await asyncio.gather(*tasks)
+
+        gc.collect()
+        
+    with open("results.json", "a") as f:
+        json.dump(results, f)
+        
+    return results
+
+async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout=240, concurrent_requests=50):
+    """
+    Main asynchronous function to process all images.
+    """
+    semaphore = asyncio.Semaphore(concurrent_requests)
+    connector = aiohttp.TCPConnector(limit=concurrent_requests)
+    timeout = aiohttp.ClientTimeout(total=timeout)  # Adjust timeout as needed
+
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+
+        tasks = []
+        for image_path in image_paths:
             tasks.append(fetch(session, semaphore, prompt, image_path, timeout))
         
         results = await asyncio.gather(*tasks)

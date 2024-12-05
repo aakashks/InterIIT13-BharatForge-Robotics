@@ -4,6 +4,7 @@ import json
 import re
 from pydantic import BaseModel
 from typing import List
+from functools import lru_cache
 
 from icecream import ic
 
@@ -59,7 +60,7 @@ def postprocess_llm(response):
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format in the response.")
     
-
+@lru_cache
 def get_possible_objects(prompt):
     # unless we get correct json output keep prompting
     # try 5 times
@@ -70,7 +71,6 @@ We are currently in an indoor environment that can be a warehouse, office, or fa
 Commands are given to a robot to navigate the environment.
 Which objects or entities could the user be referring to when they say "{prompt}"? 
 The robot would then need to go to that object or entity.
-Make sure that the objects you list are significantly different and not synonyms.
 Remember that the robot should be able to go to the possible object and then perform an action suitable to the user query.
 Return at most 4 such objects.
 Return the possible objects in a JSON format.

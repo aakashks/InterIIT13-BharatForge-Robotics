@@ -18,6 +18,9 @@ from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
 
 from icecream import ic
+import torch
+
+torch.set_grad_enabled(False)
 
 
 # Global variable to track ROS2 initialization
@@ -80,16 +83,19 @@ with col1:
         with st.spinner("Processing..."):
             try:
                 # Get possible objects from the user query
-                objects_json = get_possible_objects(prompt)
+                # objects_json = get_possible_objects(prompt)
                 st.success("Possible Objects Identified:")
-                st.json(objects_json)
                 
                 # extract list of objects
-                object_list = objects_json['possible_objects']
-                ic(object_list)
+                # object_list = objects_json['possible_objects']
+                object_list = ['garbage can', 'dustbin', 'trash can'] # for testing
+                st.write(object_list)
+                
                 obj_path = run_clip_on_objects(object_list, collection)
-                ic(obj_path)
+                st.write(obj_path)
+
                 coord_data = run_vlm(obj_path)
+                st.write(coord_data)
                 
                 ros_node.publish(coord_data)
                 
