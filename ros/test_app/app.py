@@ -97,8 +97,8 @@ with main_col:
         try:
             # Step 1: Natural Language Processing
             with st.status("🧠 Understanding your command...", expanded=True) as status:
-                # objects_json = get_possible_objects(prompt)
-                object_list = ['garbage can', 'dustbin', 'trash can']  # for testing
+                objects_json = get_possible_objects(prompt)
+                object_list = objects_json['possible_objects']
                 st.write("Identified Objects:", ", ".join(object_list))
                 status.update(label="✅ Command understood!", state="complete")
 
@@ -131,12 +131,12 @@ with status_col:
     # Robot Feedback Section
     st.markdown("#### Live Feedback")
     if st.button("📡 Check Swarm Status"):
-        with st.spinner("Receiving robot feedback..."):
+        with st.spinner("Receiving swarm feedback..."):
             rclpy.spin_once(ros_node, timeout_sec=0.1)
             if ros_node.received_message:
                 st.success(f"📨 Latest Update: {ros_node.received_message}")
             else:
-                st.info("⏳ No new updates from robots")
+                st.info("⏳ No new update from swarm")
 
     # System Status
     st.markdown("#### System Status")

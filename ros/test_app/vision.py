@@ -1,7 +1,10 @@
-from icecream import ic
-from vlm import run_multiple_image_query_same_prompt
 import asyncio
 import re
+from typing import Dict, List, Optional, Union
+
+from icecream import ic
+from vlm import run_multiple_image_query_same_prompt
+
 
 def run_clip_on_objects(object_list, collection, topk=5):
     prompt = [f'a photo of a {obj}' for obj in object_list]
@@ -22,8 +25,8 @@ def run_clip_on_objects(object_list, collection, topk=5):
     return object_and_path
 
 
-import re
-from typing import Optional, Dict, List, Union
+
+
 
 def extract_points(text: str) -> Optional[Dict[str, Union[List[float], str]]]:
     """
@@ -92,8 +95,8 @@ def extract_points(text: str) -> Optional[Dict[str, Union[List[float], str]]]:
     return {
         "x_coordinates": x_coords,
         "y_coordinates": y_coords,
-        "alt_message": alt_message,
-        "main_message": main_message,
+        # "alt_message": alt_message,
+        # "main_message": main_message,
     }
 
 
@@ -108,10 +111,10 @@ def run_vlm(object_and_path, concurrent_requests=25, timeout=120):
         ic(result)
         results[i] = {'object': dic['object'], 'points': []}
         
-        for i, r in enumerate(result):
+        for j, r in enumerate(result):
             points = extract_points(r)
             if points:
-                points['image_path'] = dic['image_paths'][i]
+                points['image_path'] = dic['image_paths'][j]
                 results[i]['points'].append(points)
     
     return results
