@@ -6,12 +6,11 @@ from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
 from chromadb.utils.data_loaders import ImageLoader
 import uvicorn
 import logging
+import argparse
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-import argparse
 
 # Setup argument parser
 parser = argparse.ArgumentParser(description='FastAPI server with ChromaDB')
@@ -25,10 +24,10 @@ args = parser.parse_args()
 app = FastAPI()
 
 # Initialize ChromaDB and embedding function
-client = chromadb.PersistentClient('/home/user1/s_ws/.chromadb_cache')
+client = chromadb.PersistentClient(args.db_path)
 embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
 db_collection = client.get_or_create_collection(
-    name='test1', 
+    name=args.collection_name, 
     embedding_function=embedding_function, 
     data_loader=ImageLoader()
 )
