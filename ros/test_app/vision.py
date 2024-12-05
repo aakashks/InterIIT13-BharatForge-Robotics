@@ -1,18 +1,14 @@
 import asyncio
 import re
 from typing import Dict, List, Optional, Union
-
 from icecream import ic
 from vlm import run_multiple_image_query_same_prompt
 
 
-def run_clip_on_objects(object_list, collection, topk=5):
+def run_clip_on_objects(object_list, client, topk=5):
     prompt = [f'a photo of a {obj}' for obj in object_list]
 
-    results = collection.query(
-        query_texts=prompt,
-        n_results=topk,
-    )
+    results = client.query_db(prompts=prompt, limit=topk)
     ic(results)
 
     object_and_path = {}
@@ -23,7 +19,6 @@ def run_clip_on_objects(object_list, collection, topk=5):
     ic(object_and_path)
     
     return object_and_path
-
 
 
 

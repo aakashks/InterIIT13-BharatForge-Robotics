@@ -8,6 +8,9 @@ from functools import lru_cache
 
 from icecream import ic
 
+
+ENV_PROMPT = "We are currently in an indoor environment that is a hospital"
+
 # Define a Pydantic model for the expected JSON response
 class PossibleObjects(BaseModel):
     possible_objects: List[str]
@@ -67,12 +70,12 @@ def get_possible_objects(prompt):
     final_prompt = (
             f"""
 Given is user query: "{prompt}".
-We are currently in an indoor environment that can be a warehouse, office, or factory. 
+{ENV_PROMPT if ENV_PROMPT else "We are currently in an indoor environment that can be a warehouse, office, factory, or a hospital."}
 Commands are given to a robot to navigate the environment.
 Which objects or entities could the user be referring to when they say "{prompt}"? 
 The robot would then need to go to that object or entity.
 Remember that the robot should be able to go to the possible object and then perform an action suitable to the user query.
-Return at most 4 such objects.
+Return at most 4 such objects. Make sure the first object is the most probable one.
 Return the possible objects in a JSON format.
 """
             + """

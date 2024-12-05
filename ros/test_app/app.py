@@ -3,9 +3,7 @@ import json
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-import chromadb
-from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
-from chromadb.utils.data_loaders import ImageLoader
+from db_client import EmbeddingClient
 from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
 from utils import *
@@ -96,19 +94,13 @@ else:
 
 ros_node = st.session_state.ros_node
 
-# Load database collection
-if "db_collection" not in st.session_state:
-    with st.spinner("Loading swarm info..."):
-        db_client = chromadb.HttpClient(host='localhost', port=8000)
-        embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
-        st.session_state.db_collection = db_client.get_collection(
-            'test1',
-            embedding_function=embedding_function,
-            data_loader=ImageLoader()
-        )
-        st.success("Swarm info loaded successfully!")
+# Load database
+if "db_client" not in st.session_state:
+    with st.spinner("Loading Database..."):
+        st.session_state.db_client = EmbeddingClient("http://0.0.0.0:8000")
+        st.success("Database loaded successfully!")
 
-collection = st.session_state.db_collection
+db_client = st.session_state.db_client
 
 # Main UI
 st.title("Intelligent Swarm Robotics Command Center")
@@ -167,7 +159,7 @@ with main_col:
 
             # Step 2: Object Detection
             with st.status("🔍 Locating objects in environment...", expanded=False) as status:
-                obj_path = run_clip_on_objects(object_list, collection)
+                obj_path = run_clip_on_objects(object_list, db_client, topk=5)
                 # st.write("Located object at:", obj_path)
                 coord_data = run_vlm(obj_path)
                 n_objects = get_count_from_coord_data(coord_data)
@@ -239,8 +231,8 @@ if st.session_state.show_status:
             st.markdown(f"ROS2 Connection: {status_indicator}")
 
         if st.button("🔄 Reset Connection"):
-            if "db_collection" in st.session_state:
-                del st.session_state.db_collection
+            if "db_client" in st.session_state:
+                del st.session_state.db_client
             st.session_state.ros_initialized = False
             st.rerun()
 
