@@ -32,25 +32,33 @@ st.markdown("""
         color: #3498db;
         font-style: italic;
     }
-    /* New styles for status panel */
     .status-panel {
         background-color: #f0f2f6;
         padding: 1rem;
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    /* Style for the toggle button */
     .stButton>button {
         float: right;
         padding: 0.5rem 1rem;
         border-radius: 20px;
     }
+    /* Add styles for logo */
+    .logo-img {
+        max-width: 200px;  # Adjust size as needed
+        margin-bottom: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# Global variable to track ROS2 initialization
-if "ros_initialized" not in st.session_state:
-    st.session_state.ros_initialized = False
+# Add logo
+try:
+    logo = Image.open("logo.jpeg")  # Replace with your logo path
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.image(logo)
+except Exception as e:
+    st.error("Unable to load company logo")
 
 class ROS2Interface(Node):
     def __init__(self):
@@ -73,10 +81,16 @@ class ROS2Interface(Node):
         self.publisher_.publish(msg)
 
 
+
+# Global variable to track ROS2 initialization
+if "ros_initialized" not in st.session_state:
+    st.session_state.ros_initialized = False
+
 # Initialize ROS2 only once
-if not st.session_state.ros_initialized:
+if 'ros_node' not in st.session_state:
     with st.spinner("Initializing ROS2 Connection..."):
-        rclpy.init()
+        if not rclpy.ok():
+            rclpy.init()
         st.session_state.ros_node = ROS2Interface()
         st.session_state.ros_initialized = True
         st.success("ROS2 Connection Established!")
@@ -101,7 +115,7 @@ collection = st.session_state.db_collection
 
 
 # Main UI
-st.title("🤖 Intelligent Swarm Robotics Command Center")
+st.title("Intelligent Swarm Robotics Command Center")
 
 # Add a toggle button for the status panel
 if 'show_status' not in st.session_state:
@@ -118,12 +132,13 @@ with col2:
 
 # Create the layout based on status panel visibility
 if st.session_state.show_status:
-    main_col, status_col = main_container.columns([2, 1])
+    main_col, status_col = main_container.columns([3, 1])
 else:
     main_col = main_container.columns([1])[0]
 
 
-with main_col:
+
+with main_col:    
     st.markdown("""
     ### Welcome to the Robot Command Interface
     This system allows you to control swarm robots using natural language commands. 
@@ -155,7 +170,7 @@ with main_col:
                 status.update(label="✅ Command understood!", state="complete")
 
             # Step 2: Object Detection
-            with st.status("🔍 Locating objects in environment...", expanded=True) as status:
+            with st.status("🔍 Locating objects in environment...", expanded=False) as status:
                 obj_path = run_clip_on_objects(object_list, collection)
                 # st.write("Located object at:", obj_path)
                 coord_data = run_vlm(obj_path)
