@@ -1,6 +1,17 @@
 from PIL import Image, ImageDraw
 from icecream import ic
 
+def get_count_from_coord_data(coord_data):
+    """
+    Get the total count of objects from the given coordinate data.
+    """
+    count = 0
+    for obj_id in coord_data:
+        obj_data = coord_data[obj_id]
+        count += len(obj_data["points"])
+        
+    return count
+        
 
 def get_topk_imgs_from_coord_data(coord_data, k=4):
     """
@@ -56,52 +67,52 @@ def get_topk_paths_from_coord_data(coord_data, k=4):
     return path_pairs[:k]
 
 
-def test_get_topk_paths_from_coord_data():
-    """
-    Test function for get_topk_paths_from_coord_data.
-    """
-    # Define some sample coordinate data
-    coord_data = {
-        0: {
-            "object": "bed",
-            "points": [
-                {
-                    "x_coordinates": [49.8],
-                    "y_coordinates": [32.3],
-                    "image_path": "/home/user1/s_ws/images/10.png"
-                },
-                {
-                    "x_coordinates": [48.9],
-                    "y_coordinates": [35.4],
-                    "image_path": "/home/user1/s_ws/images/11.png"
-                }
-            ]
-        },
-        1: {
-            "object": "dustbin",
-            "points": [
-                {
-                    "x_coordinates": [37.9],
-                    "y_coordinates": [47.3],
-                    "image_path": "/home/user1/s_ws/images/7.png"
-                },
-                {
-                    "x_coordinates": [11.9],
-                    "y_coordinates": [50.3],
-                    "image_path": "/home/user1/s_ws/images/6.png"
-                },
-                {
-                    "x_coordinates": [25.6],
-                    "y_coordinates": [55.3],
-                    "image_path": "/home/user1/s_ws/images/8.png"
-                }
-            ]
-        }
-    }
+# def test_get_topk_paths_from_coord_data():
+#     """
+#     Test function for get_topk_paths_from_coord_data.
+#     """
+#     # Define some sample coordinate data
+#     coord_data = {
+#         0: {
+#             "object": "bed",
+#             "points": [
+#                 {
+#                     "x_coordinates": [49.8],
+#                     "y_coordinates": [32.3],
+#                     "image_path": "/home/user1/s_ws/images/10.png"
+#                 },
+#                 {
+#                     "x_coordinates": [48.9],
+#                     "y_coordinates": [35.4],
+#                     "image_path": "/home/user1/s_ws/images/11.png"
+#                 }
+#             ]
+#         },
+#         1: {
+#             "object": "dustbin",
+#             "points": [
+#                 {
+#                     "x_coordinates": [37.9],
+#                     "y_coordinates": [47.3],
+#                     "image_path": "/home/user1/s_ws/images/7.png"
+#                 },
+#                 {
+#                     "x_coordinates": [11.9],
+#                     "y_coordinates": [50.3],
+#                     "image_path": "/home/user1/s_ws/images/6.png"
+#                 },
+#                 {
+#                     "x_coordinates": [25.6],
+#                     "y_coordinates": [55.3],
+#                     "image_path": "/home/user1/s_ws/images/8.png"
+#                 }
+#             ]
+#         }
+#     }
 
-    # Call the function
-    result = get_topk_paths_from_coord_data(coord_data, k=8)
-    ic(result)
+#     # Call the function
+#     result = get_topk_paths_from_coord_data(coord_data, k=8)
+#     ic(result)
     
-if __name__ == "__main__":
-    test_get_topk_paths_from_coord_data()
+# if __name__ == "__main__":
+#     test_get_topk_paths_from_coord_data()

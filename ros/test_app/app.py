@@ -8,7 +8,7 @@ from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
 from chromadb.utils.data_loaders import ImageLoader
 from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
-from utils import get_topk_paths_from_coord_data, get_topk_imgs_from_coord_data
+from utils import *
 from PIL import Image
 
 # Styling and Layout
@@ -163,9 +163,9 @@ with main_col:
         try:
             # Step 1: Natural Language Processing
             with st.status("🧠 Understanding your command...", expanded=True) as status:
-                # objects_json = get_possible_objects(prompt)
-                # object_list = objects_json['possible_objects']
-                object_list = ['bed', 'dustbin'] # for testing
+                objects_json = get_possible_objects(prompt)
+                object_list = objects_json['possible_objects']
+                # object_list = ['bed', 'dustbin'] # for testing
                 st.write("Identified Objects:", ", ".join(object_list))
                 status.update(label="✅ Command understood!", state="complete")
 
@@ -174,8 +174,9 @@ with main_col:
                 obj_path = run_clip_on_objects(object_list, collection)
                 # st.write("Located object at:", obj_path)
                 coord_data = run_vlm(obj_path)
+                n_objects = get_count_from_coord_data(coord_data)
                 st.write("Navigation coordinates:", coord_data)
-                status.update(label="✅ Objects located!", state="complete")
+                status.update(label=f"✅ {n_objects} objects located!", state="complete")
 
 
             # After getting coord_data, display the detected objects
