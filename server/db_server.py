@@ -14,20 +14,22 @@ logger = logging.getLogger(__name__)
 
 # Setup argument parser
 parser = argparse.ArgumentParser(description='FastAPI server with ChromaDB')
-parser.add_argument('--db_path', type=str,
+parser.add_argument('path', type=str,
                    help='Path to ChromaDB persistent storage')
-parser.add_argument('--collection_name', type=str,
+parser.add_argument('name', type=str,
                    help='Name of the ChromaDB collection')
+parser.add_argument('--port', type=int, default=8000,
+                   help='Port number for the FastAPI server')
 
 args = parser.parse_args()
 
 app = FastAPI()
 
 # Initialize ChromaDB and embedding function
-client = chromadb.PersistentClient(args.db_path)
+client = chromadb.PersistentClient(args.path)
 embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
 db_collection = client.get_or_create_collection(
-    name=args.collection_name, 
+    name=args.name, 
     embedding_function=embedding_function, 
     data_loader=ImageLoader()
 )
@@ -103,4 +105,4 @@ async def query_db(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=args.port)
