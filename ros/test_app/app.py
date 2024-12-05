@@ -32,36 +32,18 @@ st.markdown("""
         color: #3498db;
         font-style: italic;
     }
-    /* Sidebar styling */
-    .status-sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        width: 300px;
+    /* New styles for status panel */
+    .status-panel {
         background-color: #f0f2f6;
-        padding: 2rem;
-        box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease-in-out;
-        z-index: 1000;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .status-sidebar.hidden {
-        transform: translateX(-100%);
-    }
-    .main-content {
-        transition: margin-left 0.3s ease-in-out;
-    }
-    .main-content.sidebar-visible {
-        margin-left: 300px;
-    }
-    /* Toggle button styling */
-    .sidebar-toggle-btn {
-        margin-bottom: 20px;
-        padding: 8px 16px;
+    /* Style for the toggle button */
+    .stButton>button {
+        float: right;
+        padding: 0.5rem 1rem;
         border-radius: 20px;
-        background-color: #3498db;
-        color: white;
-        border: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -101,8 +83,8 @@ if not st.session_state.ros_initialized:
 
 ros_node = st.session_state.ros_node
 
+# Load database collection
 
-# Load database collection only once
 if "db_collection" not in st.session_state:
     with st.spinner("Loading swarm info..."):
         db_client = chromadb.HttpClient(host='localhost', port=8000)
@@ -112,52 +94,36 @@ if "db_collection" not in st.session_state:
             embedding_function=embedding_function, 
             data_loader=ImageLoader()
         )
+        st.success("Swarm info loaded successfully!")
+
 
 collection = st.session_state.db_collection
 
 
-# Initialize session state for sidebar visibility
-if 'show_sidebar' not in st.session_state:
-    st.session_state.show_sidebar = True
+# Main UI
+st.title("🤖 Intelligent Swarm Robotics Command Center")
 
-# Create a container for the entire app
-app_container = st.container()
+# Add a toggle button for the status panel
+if 'show_status' not in st.session_state:
+    st.session_state.show_status = True
 
-# Status Sidebar
-if st.session_state.show_sidebar:
-    with st.sidebar:
-        st.markdown("### 🤖 Robot Status")
+# Create a container for the main content
+main_container = st.container()
 
-        # Robot Feedback Section
-        st.markdown("#### Live Feedback")
-        if st.button("📡 Check Swarm Status"):
-            with st.spinner("Receiving swarm feedback..."):
-                rclpy.spin_once(ros_node, timeout_sec=0.1)
-                if ros_node.received_message:
-                    st.success(f"📨 Latest Update: {ros_node.received_message}")
-                else:
-                    st.info("⏳ No new update from swarm")
+# Add toggle button in the top right
+col1, col2 = st.columns([6, 1])
+with col2:
+    if st.button('📊 Toggle Status'):
+        st.session_state.show_status = not st.session_state.show_status
 
-        # System Status
-        st.markdown("#### System Status")
-        status_indicator = "🟢" if st.session_state.ros_initialized else "🔴"
-        st.markdown(f"ROS2 Connection: {status_indicator}")
-        
-        
+# Create the layout based on status panel visibility
+if st.session_state.show_status:
+    main_col, status_col = main_container.columns([2, 1])
+else:
+    main_col = main_container.columns([1])[0]
 
-# Main Content
-with app_container:
-    
-    # Add toggle button at the top with better styling
-    col1, col2, col3 = st.columns([1, 3, 1])
-    with col1:
-        if st.button('☰ Toggle Status Panel', 
-                     key='sidebar_toggle',
-                     use_container_width=True):
-            st.session_state.show_sidebar = not st.session_state.show_sidebar
-    
-    
-    st.title("🤖 Intelligent Swarm Robotics Command Center")
+
+with main_col:
     st.markdown("""
     ### Welcome to the Robot Command Interface
     This system allows you to control swarm robots using natural language commands. 
@@ -191,14 +157,11 @@ with app_container:
             # Step 2: Object Detection
             with st.status("🔍 Locating objects in environment...", expanded=True) as status:
                 obj_path = run_clip_on_objects(object_list, collection)
-                st.write("Located object at:", obj_path)
-                status.update(label="✅ Objects located!", state="complete")
-
-            # Step 3: Path Planning
-            with st.status("📍 Calculating robot coordinates...", expanded=True) as status:
+                # st.write("Located object at:", obj_path)
                 coord_data = run_vlm(obj_path)
                 st.write("Navigation coordinates:", coord_data)
-                status.update(label="✅ Path planned!", state="complete")
+                status.update(label="✅ Objects located!", state="complete")
+
 
             # After getting coord_data, display the detected objects
             with st.status("🖼️ Retrieving object images...", expanded=True) as status:
@@ -229,7 +192,44 @@ with app_container:
             st.error(f"❌ Error: {str(e)}")
             st.info("Please try again or contact system administrator if the problem persists.")
 
+if st.session_state.show_status:
+    with status_col:
+        st.markdown("### 🤖 Robot Status")
+        
+        # Add a container with a different background color for the status panel
+        with st.container():
+            st.markdown("""
+                <style>
+                [data-testid="stVerticalBlock"] > [style*="flex-direction: column;"] > [data-testid="stVerticalBlock"] {
+                    background-color: #f0f2f6;
+                    padding: 1rem;
+                    border-radius: 10px;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            # Robot Feedback Section
+            st.markdown("#### Live Feedback")
+            if st.button("📡 Check Swarm Status"):
+                with st.spinner("Receiving swarm feedback..."):
+                    rclpy.spin_once(ros_node, timeout_sec=0.1)
+                    if ros_node.received_message:
+                        st.success(f"📨 Latest Update: {ros_node.received_message}")
+                    else:
+                        st.info("⏳ No new update from swarm")
 
+            # System Status
+            st.markdown("#### System Status")
+            status_indicator = "🟢" if st.session_state.ros_initialized else "🔴"
+            st.markdown(f"ROS2 Connection: {status_indicator}")
+
+        # if st.button("🔄 Reset Connection"):
+        #     if "db_collection" in st.session_state:
+        #         del st.session_state.db_collection
+        #     st.session_state.ros_initialized = False
+        #     st.rerun()
+
+# Footer
 st.markdown("---")
 st.markdown("""
     <div style='text-align: center'>
