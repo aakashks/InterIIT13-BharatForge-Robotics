@@ -118,6 +118,6 @@ def run_vlm(object_and_path, concurrent_requests=50, timeout=240):
                 points['image_path'] = dic['image_paths'][j]
                 # results[i]['points'].append(points)
                 # instead storing the pose_x, pose_y, pose_z, pose_w for now
-                results[i]['points'].append({'x_coordinates': dic['pose']['x'][j], 'y_coordinates': dic['pose']['y'][j]})
+                results[i]['points'].append({'image_path': dic['image_paths'][j], 'x_coordinates': [dic['pose']['x'][j]], 'y_coordinates': [dic['pose']['y'][j]]})
     
     return results

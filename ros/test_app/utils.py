@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw
+import os
 from icecream import ic
 
 def get_count_from_coord_data(coord_data):
@@ -25,6 +26,7 @@ def get_topk_imgs_from_coord_data(coord_data, k=4):
         object_name = obj_data["object"]
         # Add all paths for this object
         for point_data in obj_data["points"]:
+            # img = Image.open(point_data["image_path"].replace('/home/ps2-mid', os.getenv('MOUNT_DIR')))
             img = Image.open(point_data["image_path"])
             draw = ImageDraw.Draw(img)
             

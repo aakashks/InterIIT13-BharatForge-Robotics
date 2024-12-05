@@ -56,7 +56,7 @@ st.markdown("""
 
 # Add logo
 try:
-    logo = Image.open("/home/user1/ros2_ws/logo.jpeg")  # Replace with your logo path
+    logo = Image.open(os.getenv('LOGO_PATH'))  # Replace with your logo path
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.image(logo)

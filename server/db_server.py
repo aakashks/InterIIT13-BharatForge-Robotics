@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser(description='FastAPI server with ChromaDB')
 parser.add_argument('path', type=str,
                    help='Path to ChromaDB persistent storage')
-parser.add_argument('name', type=str,
+parser.add_argument('--name', default='clip_embeddings', type=str,
                    help='Name of the ChromaDB collection')
 parser.add_argument('--port', type=int, default=8000,
                    help='Port number for the FastAPI server')

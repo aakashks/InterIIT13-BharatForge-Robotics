@@ -47,6 +47,3 @@ class EmbeddingClient:
             self.logger.error(f"Error querying: {str(e)}")
             raise
 
-if __name__ == "__main__":
-    client = EmbeddingClient("http://0.0.0.0:8000")
-    print(client.query_db(["bed", "dustbin"], limit=5)['ids'])

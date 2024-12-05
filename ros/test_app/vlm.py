@@ -50,6 +50,7 @@ async def fetch(session, semaphore, prompt, image_url):
     
 async def run_on_image(session, semaphore, prompt, image_path):
     # convert image to base64
+    # image_path = image_path.replace("/home/ps2-mid", os.getenv('MOUNT_DIR'))
     with open(image_path, 'rb') as image_file:
         base64_image = base64.b64encode(image_file.read()).decode("utf-8")
         
