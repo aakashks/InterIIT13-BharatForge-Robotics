@@ -97,8 +97,8 @@ with main_col:
         try:
             # Step 1: Natural Language Processing
             with st.status("🧠 Understanding your command...", expanded=True) as status:
-                objects_json = get_possible_objects(prompt)
-                object_list = objects_json['possible_objects']
+                # objects_json = get_possible_objects(prompt)
+                object_list = ['garbage can', 'dustbin', 'trash can']  # for testing
                 st.write("Identified Objects:", ", ".join(object_list))
                 status.update(label="✅ Command understood!", state="complete")
 
