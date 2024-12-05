@@ -53,7 +53,7 @@ st.markdown("""
 
 # Add logo
 try:
-    logo = Image.open("logo.jpeg")  # Replace with your logo path
+    logo = Image.open("/home/user1/ros2_ws/logo.jpeg")  # Replace with your logo path
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.image(logo)
@@ -80,11 +80,8 @@ class ROS2Interface(Node):
         msg.data = json.dumps(coord_data)
         self.publisher_.publish(msg)
 
-
-
-# Global variable to track ROS2 initialization
-if "ros_initialized" not in st.session_state:
-    st.session_state.ros_initialized = False
+# global value to check if ROS2 is initialized
+st.session_state.ros_initialized = False
 
 # Initialize ROS2 only once
 if 'ros_node' not in st.session_state:
@@ -94,6 +91,8 @@ if 'ros_node' not in st.session_state:
         st.session_state.ros_node = ROS2Interface()
         st.session_state.ros_initialized = True
         st.success("ROS2 Connection Established!")
+else:
+    st.session_state.ros_initialized = True
 
 ros_node = st.session_state.ros_node
 
@@ -239,11 +238,11 @@ if st.session_state.show_status:
             status_indicator = "🟢" if st.session_state.ros_initialized else "🔴"
             st.markdown(f"ROS2 Connection: {status_indicator}")
 
-        # if st.button("🔄 Reset Connection"):
-        #     if "db_collection" in st.session_state:
-        #         del st.session_state.db_collection
-        #     st.session_state.ros_initialized = False
-        #     st.rerun()
+        if st.button("🔄 Reset Connection"):
+            if "db_collection" in st.session_state:
+                del st.session_state.db_collection
+            st.session_state.ros_initialized = False
+            st.rerun()
 
 # Footer
 st.markdown("---")
