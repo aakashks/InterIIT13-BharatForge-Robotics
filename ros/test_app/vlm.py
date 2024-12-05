@@ -6,8 +6,9 @@ from tqdm.asyncio import tqdm_asyncio
 import os
 import gc
 import sys
+import base64
 
-async def fetch(session, semaphore, prompt, image_url, timeout):
+async def fetch(session, semaphore, prompt, image_url):
     """
     Asynchronously fetch the API response for a single image.
     """
@@ -19,7 +20,7 @@ async def fetch(session, semaphore, prompt, image_url, timeout):
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": 'file://' + image_url}},
+                        {"type": "image_url", "image_url": {"url": image_url}},
                     ],
                 }],
             }
@@ -45,9 +46,20 @@ async def fetch(session, semaphore, prompt, image_url, timeout):
             vlm_output = f"Exception: {str(e)}"
 
         return vlm_output
+    
+    
+async def run_on_image(session, semaphore, prompt, image_path):
+    # convert image to base64
+    with open(image_path, 'rb') as image_file:
+        base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+        
+    base64_image = "data:image/jpeg;base64," + base64_image
+    # file_path_image = 'file://' + image_path
+    
+    return await fetch(session, semaphore, prompt, base64_image)
 
 
-async def run_multiple_image_query(image_paths, prompts, timeout=240, concurrent_requests=50):
+async def run_multiple_image_query(image_paths, prompts, timeout, concurrent_requests):
     """
     Main asynchronous function to process all images.
     """
@@ -59,7 +71,7 @@ async def run_multiple_image_query(image_paths, prompts, timeout=240, concurrent
 
         tasks = []
         for image_path, prompt in zip(image_paths, prompts):
-            tasks.append(fetch(session, semaphore, prompt, image_path, timeout))
+            tasks.append(run_on_image(session, semaphore, prompt, image_path))
         
         results = await asyncio.gather(*tasks)
 
@@ -70,7 +82,7 @@ async def run_multiple_image_query(image_paths, prompts, timeout=240, concurrent
         
     return results
 
-async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout=240, concurrent_requests=50):
+async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout, concurrent_requests):
     """
     Main asynchronous function to process all images.
     """
@@ -82,7 +94,7 @@ async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout=240,
 
         tasks = []
         for image_path in image_paths:
-            tasks.append(fetch(session, semaphore, prompt, image_path, timeout))
+            tasks.append(run_on_image(session, semaphore, prompt, image_path))
         
         results = await asyncio.gather(*tasks)
 

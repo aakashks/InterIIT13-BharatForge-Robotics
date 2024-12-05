@@ -60,7 +60,7 @@ def postprocess_llm(response):
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format in the response.")
     
-@lru_cache
+
 def get_possible_objects(prompt):
     # unless we get correct json output keep prompting
     # try 5 times

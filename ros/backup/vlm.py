@@ -70,7 +70,7 @@ async def run_multiple_image_query(image_paths, prompts, timeout=240, concurrent
         
     return results
 
-async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout=240, concurrent_requests=50):
+async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout, concurrent_requests):
     """
     Main asynchronous function to process all images.
     """

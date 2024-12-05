@@ -1,5 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
 import json
 import rclpy
 from rclpy.node import Node
@@ -9,7 +8,6 @@ from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
 from chromadb.utils.data_loaders import ImageLoader
 from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
-from icecream import ic
 import torch
 
 torch.set_grad_enabled(False)
@@ -43,8 +41,25 @@ if "ros_initialized" not in st.session_state:
     st.session_state.ros_initialized = False
 
 class ROS2Interface(Node):
-    # [Previous ROS2Interface implementation remains the same]
-    ...
+    def __init__(self):
+        super().__init__('streamlit_interface')
+        self.publisher_ = self.create_publisher(String, 'coordinate_data', 10)
+        self.subscription = self.create_subscription(
+            String,
+            'ros_feedback',
+            self.listener_callback,
+            10
+        )
+        self.received_message = ''
+
+    def listener_callback(self, msg):
+        self.received_message = msg.data
+
+    def publish(self, coord_data):        #
+        msg = String()
+        msg.data = json.dumps(coord_data)
+        self.publisher_.publish(msg)
+
 
 # Initialize ROS2 only once
 if not st.session_state.ros_initialized:
@@ -56,12 +71,20 @@ if not st.session_state.ros_initialized:
 
 ros_node = st.session_state.ros_node
 
+# Load database collection
 def load_db_collection():
-    with st.spinner("Loading Database..."):
-        db_client = chromadb.PersistentClient('/home/user1/s_ws/.chromadb_cache')
-        embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
-        collection = db_client.get_collection('test1', embedding_function=embedding_function, data_loader=ImageLoader())
-        return collection
+    if "db_collection" not in st.session_state:
+        with st.spinner("Loading Database..."):
+            db_client = chromadb.HttpClient(host='localhost', port=8000)
+            embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
+            st.session_state.db_collection = db_client.get_collection(
+                'test1', 
+                embedding_function=embedding_function, 
+                data_loader=ImageLoader()
+            )
+    return st.session_state.db_collection
+
+
 
 # Main UI
 st.title("🤖 Intelligent Swarm Robotics Command Center")
@@ -72,7 +95,7 @@ st.markdown("""
     The robots will understand your instructions and navigate to the specified objects or locations.
 
     #### How it works:
-    1. Enter your command (e.g., "Go to the nearest trash can")
+    1. Enter your command (e.g., "Go to the nearest fire extinguisher")
     2. The system will identify relevant objects
     3. Robots will locate and navigate to the target
 """)
@@ -83,7 +106,7 @@ collection = load_db_collection()
 # Text input with placeholder
 prompt = st.text_input(
     "Enter your command",
-    placeholder="Example: Find the nearest garbage bin and move towards it",
+    placeholder="Example: Find the nearest fire extinguisher and move towards it",
     help="Type a natural language command for the robots"
 )
 
@@ -98,7 +121,8 @@ with main_col:
             # Step 1: Natural Language Processing
             with st.status("🧠 Understanding your command...", expanded=True) as status:
                 # objects_json = get_possible_objects(prompt)
-                object_list = ['garbage can', 'dustbin', 'trash can']  # for testing
+                # object_list = objects_json['possible_objects']
+                object_list = ['bed', 'dustbin']
                 st.write("Identified Objects:", ", ".join(object_list))
                 status.update(label="✅ Command understood!", state="complete")
 
@@ -131,12 +155,12 @@ with status_col:
     # Robot Feedback Section
     st.markdown("#### Live Feedback")
     if st.button("📡 Check Swarm Status"):
-        with st.spinner("Receiving robot feedback..."):
+        with st.spinner("Receiving swarm feedback..."):
             rclpy.spin_once(ros_node, timeout_sec=0.1)
             if ros_node.received_message:
                 st.success(f"📨 Latest Update: {ros_node.received_message}")
             else:
-                st.info("⏳ No new updates from robots")
+                st.info("⏳ No new update from swarm")
 
     # System Status
     st.markdown("#### System Status")
@@ -144,6 +168,8 @@ with status_col:
     st.markdown(f"ROS2 Connection: {status_indicator}")
 
     if st.button("🔄 Reset Connection"):
+        if "db_collection" in st.session_state:
+            del st.session_state.db_collection
         st.session_state.ros_initialized = False
         st.experimental_rerun()
 

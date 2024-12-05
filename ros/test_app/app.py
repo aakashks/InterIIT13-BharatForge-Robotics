@@ -71,12 +71,20 @@ if not st.session_state.ros_initialized:
 
 ros_node = st.session_state.ros_node
 
+# Load database collection
 def load_db_collection():
-    with st.spinner("Loading Database..."):
-        db_client = chromadb.PersistentClient('/home/user1/s_ws/.chromadb_cache')
-        embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
-        collection = db_client.get_collection('test1', embedding_function=embedding_function, data_loader=ImageLoader())
-        return collection
+    if "db_collection" not in st.session_state:
+        with st.spinner("Loading swarm info..."):
+            db_client = chromadb.HttpClient(host='localhost', port=8000)
+            embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
+            st.session_state.db_collection = db_client.get_collection(
+                'test1', 
+                embedding_function=embedding_function, 
+                data_loader=ImageLoader()
+            )
+    return st.session_state.db_collection
+
+
 
 # Main UI
 st.title("🤖 Intelligent Swarm Robotics Command Center")
@@ -98,7 +106,7 @@ collection = load_db_collection()
 # Text input with placeholder
 prompt = st.text_input(
     "Enter your command",
-    placeholder="Example: Find the nearest garbage bin and move towards it",
+    placeholder="Example: Find the nearest fire extinguisher and move towards it",
     help="Type a natural language command for the robots"
 )
 
@@ -112,8 +120,9 @@ with main_col:
         try:
             # Step 1: Natural Language Processing
             with st.status("🧠 Understanding your command...", expanded=True) as status:
-                objects_json = get_possible_objects(prompt)
-                object_list = objects_json['possible_objects']
+                # objects_json = get_possible_objects(prompt)
+                # object_list = objects_json['possible_objects']
+                object_list = ['bed', 'dustbin']
                 st.write("Identified Objects:", ", ".join(object_list))
                 status.update(label="✅ Command understood!", state="complete")
 
@@ -158,9 +167,11 @@ with status_col:
     status_indicator = "🟢" if st.session_state.ros_initialized else "🔴"
     st.markdown(f"ROS2 Connection: {status_indicator}")
 
-    if st.button("🔄 Reset Connection"):
-        st.session_state.ros_initialized = False
-        st.experimental_rerun()
+    # if st.button("🔄 Reset Connection"):
+    #     if "db_collection" in st.session_state:
+    #         del st.session_state.db_collection
+    #     st.session_state.ros_initialized = False
+    #     st.rerun()
 
 # Footer
 st.markdown("---")

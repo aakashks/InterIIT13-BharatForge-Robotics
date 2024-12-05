@@ -16,7 +16,7 @@ def run_clip_on_objects(object_list, collection, topk=5):
     ic(results)
 
     object_and_path = {}
-    for i, obj in enumerate(object_list):
+    for i in range(len(object_list)):
         image_paths = [d['image_path'] for d in results['metadatas'][i]]
         object_and_path[i] = {'object': object_list[i], 'image_paths': image_paths}
         
@@ -100,7 +100,7 @@ def extract_points(text: str) -> Optional[Dict[str, Union[List[float], str]]]:
     }
 
 
-def run_vlm(object_and_path, concurrent_requests=25, timeout=120):
+def run_vlm(object_and_path, concurrent_requests=50, timeout=240):
     results = {}
     for i, dic in object_and_path.items():
         template = f"Point to the {dic['object']} in the image."
