@@ -1,5 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
 import json
 import rclpy
 from rclpy.node import Node
@@ -9,7 +8,6 @@ from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
 from chromadb.utils.data_loaders import ImageLoader
 from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
-from icecream import ic
 import torch
 
 torch.set_grad_enabled(False)
@@ -43,8 +41,25 @@ if "ros_initialized" not in st.session_state:
     st.session_state.ros_initialized = False
 
 class ROS2Interface(Node):
-    # [Previous ROS2Interface implementation remains the same]
-    ...
+    def __init__(self):
+        super().__init__('streamlit_interface')
+        self.publisher_ = self.create_publisher(String, 'coordinate_data', 10)
+        self.subscription = self.create_subscription(
+            String,
+            'ros_feedback',
+            self.listener_callback,
+            10
+        )
+        self.received_message = ''
+
+    def listener_callback(self, msg):
+        self.received_message = msg.data
+
+    def publish(self, coord_data):        #
+        msg = String()
+        msg.data = json.dumps(coord_data)
+        self.publisher_.publish(msg)
+
 
 # Initialize ROS2 only once
 if not st.session_state.ros_initialized:
@@ -72,7 +87,7 @@ st.markdown("""
     The robots will understand your instructions and navigate to the specified objects or locations.
 
     #### How it works:
-    1. Enter your command (e.g., "Go to the nearest trash can")
+    1. Enter your command (e.g., "Go to the nearest fire extinguisher")
     2. The system will identify relevant objects
     3. Robots will locate and navigate to the target
 """)
