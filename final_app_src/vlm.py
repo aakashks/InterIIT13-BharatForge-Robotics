@@ -33,7 +33,7 @@ async def fetch(session, semaphore, prompt, image_url):
             # Set a specific timeout for the request
             request_timeout = aiohttp.ClientTimeout(total=None)   # timeout for each request (note that all requests were sent simultaneously)
 
-            async with session.post(f"{os.getenv('VLLM_URL')}/v1/chat/completions", json=payload, headers=headers, timeout=request_timeout) as response:
+            async with session.post(f"{os.getenv('VLLM_URL', 'http://localhost:8080')}/v1/chat/completions", json=payload, headers=headers, timeout=request_timeout) as response:
                 if response.status == 200:
                     data = await response.json()
                     # Adjust based on actual response structure
@@ -106,8 +106,3 @@ async def run_multiple_image_query_same_prompt(image_paths, prompt, timeout, con
         
     return results
 
-# if __name__ == "__main__":
-#     image_dir = sys.argv[1]
-#     prompt = sys.argv[2]
-#     asyncio.run(run_multiple_image_query(image_dir, prompt))
-    

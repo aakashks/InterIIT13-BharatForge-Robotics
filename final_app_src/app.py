@@ -56,7 +56,7 @@ st.markdown("""
 
 # Add logo
 try:
-    logo = Image.open(os.getenv('LOGO_PATH'))  # Replace with your logo path
+    logo = Image.open(os.getenv('LOGO_PATH', 'logo.jpeg'))  # Replace with your logo path
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.image(logo)
@@ -102,7 +102,7 @@ ros_node = st.session_state.ros_node
 # Load database
 if "db_client" not in st.session_state:
     with st.spinner("Loading Database..."):
-        st.session_state.db_client = EmbeddingClient(os.getenv("DB_URL"))
+        st.session_state.db_client = EmbeddingClient(os.getenv("DB_URL", 'http://localhost:8000'))
         st.success("Database loaded successfully!")
 
 db_client = st.session_state.db_client
