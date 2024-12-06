@@ -5,26 +5,26 @@ from icecream import ic
 from vlm import run_multiple_image_query_same_prompt
 
 
-def run_clip_on_objects(object_list, client, topk=5):
-    prompt = [f'a photo of a {obj}' for obj in object_list]
-
+def run_clip_on_objects(object_list, client, topk=5):  
+    prompt = [f'a photo of a {obj}' for obj in object_list]  
     results = client.query_db(prompts=prompt, limit=topk)
     ic(results)
 
-    object_and_path = {}
-    for i in range(len(object_list)):
-        image_paths = [d['image_path'] for d in results['metadatas'][i]]
-        mds = results['metadatas'][i]
-        x_coords = [md.get('pose_x', 0.0) for md in mds]
-        y_coords = [md.get('pose_y', 0.0) for md in mds]
-        z_coords = [md.get('pose_z', 0.0) for md in mds]
-        w_coords = [md.get('pose_w', 0.0) for md in mds]
+    object_detections = {}  
+    for i in range(len(object_list)):  
+        # Store all metadata for each result  
+        result_metadatas = []
         
-        object_and_path[i] = {'object': object_list[i], 'image_paths': image_paths, 'pose': {'x': x_coords, 'y': y_coords, 'z': z_coords, 'w': w_coords}}
-        
-    ic(object_and_path)
-    
-    return object_and_path
+        for metadata in results['metadatas'][i]:  
+            result_metadatas.append(metadata)  
+
+        object_detections[i] = {  
+            'object': object_list[i],   
+            'results': result_metadatas  
+        }  
+
+    ic(object_detections)  
+    return object_detections  
 
 
 
@@ -94,30 +94,51 @@ def extract_points(text: str) -> Optional[Dict[str, Union[List[float], str]]]:
         return None
 
     return {
-        "x_coordinates": x_coords,
-        "y_coordinates": y_coords,
+        "image_x": x_coords,
+        "image_y": y_coords,
         # "alt_message": alt_message,
         # "main_message": main_message,
     }
 
 
-def run_vlm(object_and_path, concurrent_requests=50, timeout=240):
-    results = {}
-    for i, dic in object_and_path.items():
-        template = f"Point to the {dic['object']} in the image."
-        image_paths = dic['image_paths']
-        ic(template)
-        ic(image_paths)
-        result = asyncio.run(run_multiple_image_query_same_prompt(image_paths, template, timeout=timeout, concurrent_requests=concurrent_requests))
-        ic(result)
-        results[i] = {'object': dic['object'], 'points': []}
-        
-        for j, r in enumerate(result):
-            points = extract_points(r)
-            if points:
-                points['image_path'] = dic['image_paths'][j]
-                # results[i]['points'].append(points)
-                # instead storing the pose_x, pose_y, pose_z, pose_w for now
-                results[i]['points'].append({'image_path': dic['image_paths'][j], 'x_coordinates': [dic['pose']['x'][j]], 'y_coordinates': [dic['pose']['y'][j]]})
-    
-    return results
+def run_vlm(object_detections, concurrent_requests=50, timeout=240):  
+    coord_data = {}  
+
+    for i, data in object_detections.items():  
+        template = f"Point to the {data['object']} in the image."  
+        image_paths = [result['image_path'] for result in data['results']]  
+
+        ic(template)  
+        ic(image_paths)  
+
+        vlm_results = asyncio.run(  
+            run_multiple_image_query_same_prompt(  
+                image_paths,   
+                template,   
+                timeout=timeout,   
+                concurrent_requests=concurrent_requests  
+            )  
+        )  
+        ic(vlm_results)  
+
+        coord_data[i] = {  
+            'object': data['object'],  
+            'points': []  
+        }  
+
+        for vlm_result, metadata in zip(vlm_results, data['results']):  
+            points = extract_points(vlm_result)  
+            if points:  
+                # Combine points with metadata  
+                point_data = {  
+                    **points,  
+                    **metadata,
+                }  
+                ic(point_data)
+                assert 'image_path' in point_data, "Image path not found in metadata"
+                assert 'pose_key' in point_data, "Pose key not found in metadata"
+                # assert 'pose_x' in point_data, "Pose x not found in metadata"
+                # assert 'pose_y' in point_data, "Pose y not found in metadata"
+                coord_data[i]['points'].append(point_data)  
+
+    return coord_data  

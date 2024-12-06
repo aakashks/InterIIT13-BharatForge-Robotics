@@ -1,3 +1,4 @@
+## Template code for ROS2 connector node
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
