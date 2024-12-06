@@ -66,7 +66,7 @@ def get_possible_objects(prompt):
     final_prompt = (
             f"""
 Given is user query: "{prompt}".
-{os.getenv('ENV_PROMPT') if os.getenv('ENV_PROMPT') else "We are currently in an indoor environment that can be a warehouse, office, factory, or a hospital."}
+{os.getenv('ENV_PROMPT', "We are currently in an indoor environment that can be a warehouse, office, factory, or a hospital.")}
 Commands are given to a robot to navigate the environment.
 Which objects or entities could the user be referring to when they say "{prompt}"? 
 The robot would then need to go to that object or entity.

@@ -88,7 +88,7 @@ async def update_db(data: PoseData):
         return {"message": "Database updated successfully"}
 
     except Exception as e:
-        logger.error(f"Error updating database: {str(e)}")
+        logger.error(f"Error updating: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/query_db")
@@ -101,7 +101,7 @@ async def query_db(request: QueryRequest):
         return results
 
     except Exception as e:
-        logger.error(f"Error querying database: {str(e)}")
+        logger.error(f"Error querying: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

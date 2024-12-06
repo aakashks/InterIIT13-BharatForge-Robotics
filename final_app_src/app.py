@@ -6,7 +6,7 @@ from std_msgs.msg import String
 from db_client import EmbeddingClient
 from llm import get_possible_objects
 from vision import run_clip_on_objects, run_vlm
-from utils import *
+from utils import get_topk_imgs_from_coord_data, get_count_from_coord_data
 from PIL import Image
 import os
 from dotenv import load_dotenv
@@ -164,12 +164,12 @@ with main_col:
 
             # Step 2: Object Detection
             with st.status("🔍 Locating objects in environment...", expanded=False) as status:
-                obj_path = run_clip_on_objects(object_list, db_client, topk=5)
-                # st.write("Located object at:", obj_path)
-                coord_data = run_vlm(obj_path)
+                obj_detection = run_clip_on_objects(object_list, db_client, topk=5)
+                # st.write("Located object at:", obj_detection)
+                coord_data = run_vlm(obj_detection)
                 n_objects = get_count_from_coord_data(coord_data)
                 st.write("Navigation coordinates:", coord_data)
-                status.update(label=f"✅ {n_objects} objects located!", state="complete")
+                status.update(label=f"✅ {n_objects} Possible objects located!", state="complete")
 
             # After getting coord_data, display the detected objects
             with st.status("🖼️ Retrieving object images...", expanded=True) as status:
@@ -199,7 +199,7 @@ with main_col:
             # Robot Feedback - Waiting for robots to reach the target
             with st.status("📡 Waiting for robots to reach the target...", expanded=True) as status:
                 feedback_received = False
-                for i in range(60):  # Wait up to 60 seconds
+                for i in range(os.getenv('WAIT_FOR_GOAL', 120)):  # Wait up to 120 seconds for the robot
                     rclpy.spin_once(ros_node, timeout_sec=1)
                     if ros_node.received_message:
                         status.update(label=f"✅ Robots have reached the target: {ros_node.received_message}", state="complete")
