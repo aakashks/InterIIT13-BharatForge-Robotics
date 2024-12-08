@@ -82,6 +82,8 @@ class OpenCLIPEmbeddingFunction(EmbeddingFunction[Union[Documents, Images]]):
         return embeddings
 """
 
+print(file)
+
 with open(file, 'w') as f:
     f.write(code)
 
