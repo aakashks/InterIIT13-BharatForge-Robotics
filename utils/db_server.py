@@ -7,6 +7,8 @@ from chromadb.utils.data_loaders import ImageLoader
 import uvicorn
 import logging
 import argparse
+import base64
+import os
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -15,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Setup argument parser
 parser = argparse.ArgumentParser(description='FastAPI server with ChromaDB')
 parser.add_argument('path', type=str,
-                   help='Path to ChromaDB persistent storage')
+                   help='Path for persistent storage')
 parser.add_argument('--name', default='clip_embeddings', type=str,
                    help='Name of the ChromaDB collection')
 parser.add_argument('--port', type=int, default=8000,
@@ -26,7 +28,7 @@ args = parser.parse_args()
 app = FastAPI()
 
 # Initialize ChromaDB and embedding function
-client = chromadb.PersistentClient(args.path)
+client = chromadb.PersistentClient(os.path.join(args.path, '.chromadb'))
 embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
 db_collection = client.get_or_create_collection(
     name=args.name, 
@@ -37,6 +39,7 @@ db_collection = client.get_or_create_collection(
 class PoseData(BaseModel):
     pose_key: str
     image_path: str
+    image_b64: str
     robot_name: str
     timestamp: str
     depth_image_path: str
@@ -51,6 +54,7 @@ def flatten_metadata(data: PoseData) -> Dict:
     metadata = {
         "pose_key": data.pose_key,
         "image_path": data.image_path,
+        "image_b64": data.image_b64,
         "robot_name": data.robot_name,
         "timestamp": data.timestamp,
         "depth_image_path": data.depth_image_path,
@@ -69,19 +73,32 @@ async def update_db(data: PoseData):
 
         # Flatten the metadata
         metadata = flatten_metadata(data)
+        
+        remote_image_path = os.path.join(args.path, 'images/', f"{data.pose_key}.jpg")
+        print(f"Saving image to {remote_image_path}")
+        
+        # Save the image to disk
+        logger.info(f"Saving image to {remote_image_path}")
+        try:  
+            with open(remote_image_path, 'wb') as image_file:  
+                image_file.write(base64.b64decode(data.image_b64))  
+        except Exception as e:  
+            logger.error(f"Failed to save image: {str(e)}")  
+            raise HTTPException(status_code=400, detail="Invalid base64 image data")  
+
 
         if existing_record['ids']:
             logger.info(f"Updating record for pose {data.pose_key}")
             db_collection.update(
                 ids=data.pose_key,
-                uris=data.image_path,
+                uris=remote_image_path,
                 metadatas=metadata
             )
         else:
             logger.info(f"Adding new record for pose {data.pose_key}")
             db_collection.add(
                 ids=data.pose_key,
-                uris=data.image_path,
+                uris=remote_image_path,
                 metadatas=metadata
             )
 
@@ -106,3 +123,4 @@ async def query_db(request: QueryRequest):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=args.port)
+    os.makedirs(os.path.join(args.path, 'images'), exist_ok=True)
