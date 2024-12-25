@@ -1,18 +1,48 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List, Dict, Optional
-import chromadb
-from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
-from chromadb.utils.data_loaders import ImageLoader
-import uvicorn
-import logging
 import argparse
 import base64
+import logging
 import os
+from typing import Dict, List, Optional, cast
+
+import chromadb
+import uvicorn
+from chromadb.api.types import (
+    Document,
+    Embedding,
+    Image,
+)
+from chromadb.utils.data_loaders import ImageLoader
+from chromadb.utils.embedding_functions import OpenCLIPEmbeddingFunction
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# monkey patching to fix cuda device bug in chromadb
+class OpenCLIPEmbeddingFunctionFixed(OpenCLIPEmbeddingFunction):
+    def __init__(self, model_name, checkpoint, device='cpu'):
+        super.__init__(model_name, checkpoint, device)
+        self._device = device
+        self._model = self._model.to(device)
+
+    def _encode_image(self, image: Image) -> Embedding:
+        pil_image = self._PILImage.fromarray(image)
+        with self._torch.no_grad():
+            image_features = self._model.encode_image(
+                self._preprocess(pil_image).unsqueeze(0).to(self._device)
+            )
+            image_features /= image_features.norm(dim=-1, keepdim=True)
+            return cast(Embedding, image_features.squeeze().cpu().numpy())
+    
+    def _encode_text(self, text: Document) -> Embedding:
+        with self._torch.no_grad():
+            text_features = self._model.encode_text(self._tokenizer(text).to(self._device))
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+            return cast(Embedding, text_features.squeeze().cpu().numpy())
+
 
 # Setup argument parser
 parser = argparse.ArgumentParser(description='FastAPI server with ChromaDB')
@@ -29,7 +59,7 @@ app = FastAPI()
 
 # Initialize ChromaDB and embedding function
 client = chromadb.PersistentClient(os.path.join(args.path, '.chromadb'))
-embedding_function = OpenCLIPEmbeddingFunction('ViT-B-16-SigLIP', 'webli', device='cuda')
+embedding_function = OpenCLIPEmbeddingFunctionFixed('ViT-B-16-SigLIP', 'webli', device='cuda')
 db_collection = client.get_or_create_collection(
     name=args.name, 
     embedding_function=embedding_function, 
